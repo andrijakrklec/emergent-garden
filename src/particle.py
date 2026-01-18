@@ -4,6 +4,7 @@ AUTHOR: Vishal Paudel
 """
 from typing import Tuple, List
 from ctypes import c_ubyte
+from collections import defaultdict
 
 import pygame
 import random
@@ -13,18 +14,20 @@ from sklearn.cluster import KMeans
 
 
 from src.constants import (
+    SIM_DIM,
     PARTICLE_DEFAULT_RADIUS, SCREEN_DIM, WALL_HEAT, WALL_BOUNDARY,
     PARTICLE_FORCE_LOWER_RANGE, PARTICLE_FORCE_UPPER_RANGE,
-    PARTICLE_POWER_OF_DISTANCE, PARTICLE_DEFAULT_UPDATE_TIME, PARTICLE_LOSE_ENERGY
+    PARTICLE_POWER_OF_DISTANCE, PARTICLE_DEFAULT_UPDATE_TIME, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED
 )
 
 class Particle:
     def __init__(
-        self, x: Tuple[int, int],
+        self,
+        x: Tuple[int, int],
         v: Tuple[float, float],
         c: Tuple[c_ubyte, c_ubyte, c_ubyte],
-        r: float = PARTICLE_DEFAULT_RADIUS,
-        target_pos: Tuple[int, int] = (0, 0) # NOVO: Skriveni cilj (lokalni podaci)
+        target_idx: int,
+        r: float = PARTICLE_DEFAULT_RADIUS
         ):
         """Initializes a particle
 
@@ -48,7 +51,7 @@ class Particle:
         self.r = r
 
         # --- NOVO: CFL Atributi ---
-        self.target_pos = target_pos # "Lokalni podaci"
+        self.target_idx = target_idx # "Lokalni podaci"
 
         # "Lokalni model" - Inicijaliziramo ga kao nasumični 2D vektor
         self.model = np.random.rand(2) * 2 - 1
@@ -76,140 +79,175 @@ class Particle:
         pygame.draw.circle(screen, self.c, (self.x, self.y), self.r)
 
 
-def local_train(particle: Particle, learning_rate: float = 0.1):
+def local_train(particle: Particle, current_target_pos: Tuple[int, int], learning_rate: float = 0.1):
     """
-    Simulira 1 korak lokalnog treninga.
-    Čestica ažurira svoj "model" (svoj vektor smjera)
-    kako bi bolje odgovarao njenom "skrivenom cilju" (lokalni podaci).
+    Simulates local training.
+    We pass 'current_target_pos' from the game loop so the particle
+    always trains on the REAL current location of its target.
     """
-    # Izračunaj "idealan" smjer prema cilju
+    # Calculate vector pointing to the target
     target_vec = np.array([
-        particle.target_pos[0] - particle.x,
-        particle.target_pos[1] - particle.y
+        current_target_pos[0] - particle.x,
+        current_target_pos[1] - particle.y
     ])
 
-    # Izbjegni dijeljenje s nulom ako je već na cilju
+    # Normalize target vector
     norm = np.linalg.norm(target_vec)
     if norm > 0:
-        target_vec = target_vec / norm # Normaliziraj "gradijent"
+        target_vec = target_vec / norm
 
-    # Ažuriraj model (gradijentni uspon)
+    # Gradient descent step (Update model)
     particle.model = particle.model + learning_rate * target_vec
 
-    # Ponovno normaliziraj model da ostane jedinični vektor
+    # Re-normalize model to keep it a unit vector
     norm_model = np.linalg.norm(particle.model)
     if norm_model > 0:
         particle.model = particle.model / norm_model
 
+
 def run_cfl_round(particles: List[Particle], kmeans_model: KMeans):
     """
-    Pokreće jedan puni krug CFL-a:
-    1. Skuplja sve "modele" (lokalne težine).
-    2. Grupira modele koristeći KMeans.
-    3. Izračunava novi agregirani model za svaki klaster.
-    4. Emitira nove modele i cluster_id natrag svakoj čestici.
+    Runs CFL and returns a dictionary of transfers: {(old_id, new_id): count}
     """
+    if not particles:
+        return {}
 
-    # 1. Skupljanje modela
+    # 1. Capture Old State (Before training changes anything)
+    old_ids = [p.cluster_id for p in particles]
+
+    # 2. Standard KMeans Steps
     all_models = np.array([p.model for p in particles])
-
-    # 2. Grupiranje modela
-    labels = kmeans_model.fit_predict(all_models)
-
-    # 3. Agregacija (centri klastera su naši novi agregirani modeli)
+    new_labels = kmeans_model.fit_predict(all_models)
     cluster_centers = kmeans_model.cluster_centers_
 
-    # 4. Emitiranje
-    for i, particle in enumerate(particles):
-        particle.cluster_id = labels[i]
+    # 3. Update Particles and Track Transfers
+    transfers = defaultdict(int)
 
-        # Postavi model čestice na novi, agregirani model njenog klastera
-        # Normaliziraj ga za svaki slučaj
-        new_model = cluster_centers[particle.cluster_id]
+    for i, p in enumerate(particles):
+        old_id = old_ids[i]
+        new_id = new_labels[i]
+
+        # Record Transfer if the cluster changed
+        if old_id != new_id:
+            transfers[(old_id, new_id)] += 1
+
+        # Apply Updates
+        p.cluster_id = new_id
+
+        # Federated Aggregation (Average the model)
+        new_model = cluster_centers[new_id]
         norm = np.linalg.norm(new_model)
         if norm > 0:
-            particle.model = new_model / norm
+            p.model = new_model / norm
         else:
-            particle.model = new_model
+            p.model = new_model
 
-def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: float, dt: float = PARTICLE_DEFAULT_UPDATE_TIME):
-    """
-    Primjenjuje fiziku privlačenja/odbijanja temeljenu ISKLJUČIVO na cluster_id.
-    """
+    return transfers
 
-    # Pohrani sile prije primjene da se izbjegnu konflikti
+def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: float, dt: float):
+    """
+    Revised Physics: Prevents stacking by adding emergency repulsion.
+    """
+    # Initialize forces
     forces = [np.zeros(2) for _ in particles]
 
+    # Calculate interactions
     for i in range(len(particles)):
         a = particles[i]
-        for j in range(i + 1, len(particles)): # Optimizacija: i+1
+        for j in range(i + 1, len(particles)):
             b = particles[j]
 
             dx = a.x - b.x
             dy = a.y - b.y
-            d_sq = dx**2 + dy**2
+            d_sq = dx ** 2 + dy ** 2
 
-            # Preskoči ako su čestice preklopljene
-            if d_sq == 0:
+            # 1. VISUAL OPTIMIZATION: If they are too far, skip math entirely
+            if d_sq > PARTICLE_FORCE_UPPER_RANGE ** 2:
                 continue
 
-            d = d_sq**0.5
+            # Avoid division by zero
+            if d_sq == 0:
+                d_sq = 0.001
 
-            if (PARTICLE_FORCE_UPPER_RANGE > d > PARTICLE_FORCE_LOWER_RANGE):
-                g = 0.0  # Zadana vrijednost (nema sile)
+            d = d_sq ** 0.5
 
-                # Prvo provjeri jesu li obje čestice uopće grupirane
-                if a.cluster_id == -1 or b.cluster_id == -1:
-                    g = 0.0  # Ne primjenjuj silu ako ijedna nije klasificirana
+            # 2. EMERGENCY REPULSION
+            # If particles are touching (closer than radius), push them apart HARD
+            if d < PARTICLE_FORCE_LOWER_RANGE * 2:
+                F_scalar = 2000.0  # Massive repulsion to unclump them
 
-                # Ako jesu, primijeni pravila
-                elif a.cluster_id == b.cluster_id:
-                    g = g_attract  # U istom klasteru -> PRIVLAČENJE
+            # 3. NORMAL PHYSICS
+            else:
+                g = 0.0
 
-                else:  # (a.cluster_id != b.cluster_id)
-                    g = g_repel
+                # Only interact if both have a valid cluster
+                if a.cluster_id != -1 and b.cluster_id != -1:
+                    if a.cluster_id == b.cluster_id:
+                        g = g_attract  # Attraction
+                    else:
+                        g = g_repel  # Repulsion
 
-                F_scalar = g * (1 / (d ** PARTICLE_POWER_OF_DISTANCE * len(particles)))
+                # Standard Gravity Formula
+                denom = (d ** PARTICLE_POWER_OF_DISTANCE) * len(particles)
+                if denom == 0: denom = 0.001
+                F_scalar = g * (1 / denom)
 
-                fx = F_scalar * dx
-                fy = F_scalar * dy
+            # Apply forces
+            fx = F_scalar * dx
+            fy = F_scalar * dy
 
-                forces[i] += np.array([fx, fy])
-                forces[j] -= np.array([fx, fy]) # Newtonov 3. zakon
+            forces[i] += np.array([fx, fy])
+            forces[j] -= np.array([fx, fy])
 
-    # Sada primijeni izračunate sile i ažuriraj pozicije
-    for i, a in enumerate(particles):
+    # Apply forces to velocities and positions
+    for i, p in enumerate(particles):
         fx, fy = forces[i]
 
-        # AŽURIRANJE BRZINE I POZICIJE
-        a.vx = (a.vx + fx * dt) * PARTICLE_LOSE_ENERGY
-        a.vy = (a.vy + fy * dt) * PARTICLE_LOSE_ENERGY
+        p.vx = (p.vx + fx * dt) * PARTICLE_LOSE_ENERGY
+        p.vy = (p.vy + fy * dt) * PARTICLE_LOSE_ENERGY
 
-        a.x += a.vx * dt
-        a.y += a.vy * dt
+        speed = (p.vx ** 2 + p.vy ** 2) ** 0.5
 
-        V = 0.9  #was WALL_HEAT
+        # If going faster than max, scale it down
+        if speed > PARTICLE_MAX_SPEED:
+            scale = PARTICLE_MAX_SPEED / speed
+            p.vx *= scale
+            p.vy *= scale
+
+        p.x += p.vx * dt
+        p.y += p.vy * dt
+
+        # --- UPDATED WALL COLLISIONS ---
+        # Use SIM_DIM[0] and SIM_DIM[1] instead of SCREEN_DIM
+
+        V = 0.9
         D = WALL_BOUNDARY
-        if(a.x < D):
-            a.x = D + 1
-            a.vx *= -V
-        elif(a.x > SCREEN_DIM[0] - D):
-            a.x = SCREEN_DIM[0] - D - 1
-            a.vx *= -V
 
-        if(a.y < D):
-            a.y = D + 1
-            a.vy *= -V
-        elif(a.y > SCREEN_DIM[1] - D):
-            a.y = SCREEN_DIM[1] - D - 1
-            a.vy *= -V
+        # Left Wall
+        if p.x < D:
+            p.x = D
+            p.vx *= -V
 
+        # Right Wall (Now uses simulation width, not window width)
+        if p.x > SIM_DIM[0] - D:
+            p.x = SIM_DIM[0] - D
+            p.vx *= -V
+
+        # Top Wall
+        if p.y < D:
+            p.y = D
+            p.vy *= -V
+
+        # Bottom Wall
+        if p.y > SIM_DIM[1] - D:
+            p.y = SIM_DIM[1] - D
+            p.vy *= -V
 
 def instantiateGroup(
     num: int,
     c: tuple,
     frame: Tuple[Tuple[int, int], Tuple[int, int]],
-    target_pos: Tuple[int, int] # Dodan target_pos
+    target_idx: int
     ) -> List[Particle]:
     """Method to instantiate a group of particles
 
@@ -223,13 +261,13 @@ def instantiateGroup(
         group   List[Particle]:                             The list    of particles        in the group
     """
     random.seed()
-
     group = []
+
     for _ in range(num):
         x = random.randint(frame[0][0], frame[0][1])
         y = random.randint(frame[1][0], frame[1][1])
 
-        # Proslijedi target_pos u konstruktor
-        group.append(Particle(x=(x, y), v=(0.0, 0.0), c=c, target_pos=target_pos))
+        # Pass target_idx to the Particle constructor
+        group.append(Particle(x=(x, y), v=(0.0, 0.0), c=c, target_idx=target_idx))
 
     return group

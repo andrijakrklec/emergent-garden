@@ -1,11 +1,13 @@
 import pygame
 import numpy as np
-from sklearn.cluster import KMeans
 import random
+import math
+from sklearn.cluster import KMeans
 
 from src.constants import (
+    SCREEN_DIM, SIM_DIM, SIM_WIDTH, SIM_HEIGHT, GUI_WIDTH, GUI_BACKGROUND_COLOR,
     PARTICLE_DEFAULT_SPAWN_NUM, PARTICLE_COLOR_RED, PARTICLE_DEFAULT_SPAWN_FRAME,
-    SCREEN_DIM, BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
+    BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
     PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
 )
 from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules
@@ -15,159 +17,224 @@ MAX_CLUSTERS = 5
 
 
 class Game:
-    """This class represents the game instances
-    """
-
     def __init__(self):
-        """Generates a new Game object
-        """
         pygame.init()
         self.game_running = True
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont("Arial", 18, bold=True)
-        self.status_font = pygame.font.SysFont("Arial", 16, italic=True)  # For status messages
-        self.show_status_timer = 0
+
+        # Fonts
+        self.font_header = pygame.font.SysFont("Arial", 22, bold=True)
+        self.font = pygame.font.SysFont("Arial", 16)
+        self.font_small = pygame.font.SysFont("Consolas", 12)
 
         self.screen = pygame.display.set_mode(size=SCREEN_DIM)
-        pygame.display.set_caption("Clustered Federated Learning Simulacija")
+        pygame.display.set_caption("CFL Simulation")
 
         self.dt = 0.1
+        self.cfl_round_counter = 0  # Track how many rounds happened
 
-        # --- Postavke nasumičnih klastera ---
+        # --- SETUP CLUSTERS & TARGETS (Previous logic) ---
         self.num_clusters = random.randint(MIN_CLUSTERS, MAX_CLUSTERS)
-        print(f"--- Pokrećem simulaciju s {self.num_clusters} nasumičnih klastera ---")
-
-        # 1. Generiraj nasumične "skrivene ciljeve"
+        self.cluster_anchors = []
         self.cluster_targets = []
-        D = WALL_BOUNDARY * 2 # Odbijanje od ruba
+
+        # Ensure targets are within SIMULATION bounds, not the whole screen
+        D = WALL_BOUNDARY * 4
         for _ in range(self.num_clusters):
-            x = random.randint(D, SCREEN_DIM[0] - D)
-            y = random.randint(D, SCREEN_DIM[1] - D)
+            x = random.randint(D, SIM_WIDTH - D)
+            y = random.randint(D, SIM_HEIGHT - D)
+            self.cluster_anchors.append((x, y))
             self.cluster_targets.append((x, y))
 
-        # 2. Generiraj nasumične boje za vizualizaciju klastera
+        # Colors
         self.cluster_colors = {}
         for i in range(self.num_clusters):
-            # Generiraj nasumičnu svijetlu boju
-            r = random.randint(100, 255)
-            g = random.randint(100, 255)
-            b = random.randint(100, 255)
-            self.cluster_colors[i] = (r, g, b)
-        self.cluster_colors[-1] = (0x50, 0x50, 0x50) # Boja za "šum" / neklasificirane
+            self.cluster_colors[i] = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
+        self.cluster_colors[-1] = (0x50, 0x50, 0x50)
 
-        # --- Inicijalizacija čestica (Klijenata) ---
+        # --- SPAWN PARTICLES ---
         self.all_particles = []
+        for _ in range(5):
+            t_idx = random.randint(0, self.num_clusters - 1)
+            self.all_particles.extend(instantiateGroup(
+                num=PARTICLE_DEFAULT_SPAWN_NUM,
+                c=PARTICLE_COLOR_WHITE,
+                frame=PARTICLE_DEFAULT_SPAWN_FRAME,
+                target_idx=t_idx
+            ))
 
-        # Svaka grupa čestica dobiva JEDAN od nasumičnih ciljeva
-        self.all_particles.extend(instantiateGroup(num=PARTICLE_DEFAULT_SPAWN_NUM, c=PARTICLE_COLOR_RED, frame=PARTICLE_DEFAULT_SPAWN_FRAME, target_pos=random.choice(self.cluster_targets)))
-        self.all_particles.extend(instantiateGroup(num=PARTICLE_DEFAULT_SPAWN_NUM, c=PARTICLE_COLOR_YELLOW, frame=PARTICLE_DEFAULT_SPAWN_FRAME, target_pos=random.choice(self.cluster_targets)))
-        self.all_particles.extend(instantiateGroup(num=PARTICLE_DEFAULT_SPAWN_NUM, c=PARTICLE_COLOR_GREEN, frame=PARTICLE_DEFAULT_SPAWN_FRAME, target_pos=random.choice(self.cluster_targets)))
-        self.all_particles.extend(instantiateGroup(num=PARTICLE_DEFAULT_SPAWN_NUM, c=PARTICLE_COLOR_BLUE, frame=PARTICLE_DEFAULT_SPAWN_FRAME, target_pos=random.choice(self.cluster_targets)))
-        self.all_particles.extend(instantiateGroup(num=PARTICLE_DEFAULT_SPAWN_NUM, c=PARTICLE_COLOR_WHITE, frame=PARTICLE_DEFAULT_SPAWN_FRAME, target_pos=random.choice(self.cluster_targets)))
-
-        # --- CFL Postavke ---
-        # KMeans sada koristi nasumičan broj klastera
+        # --- CFL SETUP ---
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
-
         self.cluster_update_timer = 0
-        self.cluster_update_interval = 180 # Pokreni CFL svakih ~3 sekunde
+        self.cluster_update_interval = 180
 
-        print(f"--- Pokrećem INICIJALNU CFL rundu na {len(self.all_particles)} čestica ---")
+        # DEFINE BOMB BUTTON (Bottom of Sidebar)
+        btn_x = SIM_WIDTH + 20
+        btn_y = SIM_HEIGHT - 80
+        btn_w = GUI_WIDTH - 40
+        btn_h = 50
+        self.bomb_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+        self.bomb_color = (200, 50, 50)  # Red
+        self.bomb_text = self.font_header.render("DETONATE", True, (255, 255, 255))
+
+        # Initial Round
+        print(f"\n{'=' * 60}")
+        print(f"INIT: Starting Simulation with {len(self.all_particles)} particles.")
+        print(f"{'=' * 60}\n")
         run_cfl_round(self.all_particles, self.kmeans)
 
     def draw_gui(self):
-        """Renders the cluster information overlay with status indicators"""
+        """Draws the GUI in the sidebar area (Right side)"""
+
+        # 1. Background for Sidebar
+        sidebar_rect = pygame.Rect(SIM_WIDTH, 0, GUI_WIDTH, SIM_HEIGHT)
+        pygame.draw.rect(self.screen, GUI_BACKGROUND_COLOR, sidebar_rect)
+        pygame.draw.line(self.screen, (100, 100, 100), (SIM_WIDTH, 0), (SIM_WIDTH, SIM_HEIGHT), 2)
+
+        # 2. Stats
         stats = {i: 0 for i in range(self.num_clusters)}
         for p in self.all_particles:
             if p.cluster_id in stats:
                 stats[p.cluster_id] += 1
 
-        # Configuration for Spacing
-        start_x, start_y = 20, 20
-        line_height = 30
+        start_x = SIM_WIDTH + 20
+        y = 20
+        line_h = 30
 
-        # Calculate panel height: Header + Total + Clusters + Status Message space
-        panel_height = (start_y * 2) + (line_height * (self.num_clusters + 3))
-        panel_rect = pygame.Rect(10, 10, 260, panel_height)
+        # Title
+        title = self.font_header.render("CFL Dashboard", True, (255, 255, 255))
+        self.screen.blit(title, (start_x, y))
+        y += 40
 
-        pygame.draw.rect(self.screen, (30, 30, 30), panel_rect)
-        pygame.draw.rect(self.screen, (200, 200, 200), panel_rect, 2)
+        # General Info
+        self.screen.blit(self.font.render(f"Round: {self.cfl_round_counter}", True, (200, 200, 200)), (start_x, y))
+        y += line_h
+        self.screen.blit(self.font.render(f"Particles: {len(self.all_particles)}", True, (200, 200, 200)), (start_x, y))
+        y += line_h * 1.5
 
-        # 1. Title
-        title = self.font.render("CFL Simulation Status", True, (255, 255, 255))
-        self.screen.blit(title, (start_x, start_y))
+        # Clusters
+        self.screen.blit(self.font.render("Active Clusters:", True, (255, 255, 255)), (start_x, y))
+        y += line_h
 
-        # [cite_start]2. Particle Count [cite: 1]
-        total_txt = self.font.render(f"Total Particles: {len(self.all_particles)}", True, (180, 180, 180))
-        self.screen.blit(total_txt, (start_x, start_y + line_height))
-
-        # 3. Cluster Legend
-        offset_y = start_y + (line_height * 2)
         for i in range(self.num_clusters):
             color = self.cluster_colors.get(i, (255, 255, 255))
-            current_y = offset_y + (i * line_height)
-            pygame.draw.rect(self.screen, color, (start_x, current_y + 5, 15, 15))
-            cluster_txt = self.font.render(f"Cluster {i}: {stats[i]} particles", True, (255, 255, 255))
-            self.screen.blit(cluster_txt, (start_x + 25, current_y))
 
-        # 4. CFL Round Status Indicator
-        if self.show_status_timer > 0:
-            status_y = offset_y + (self.num_clusters * line_height) + 10
-            # Create a blinking effect or solid green text
-            status_color = (0, 255, 0) if (pygame.time.get_ticks() // 250) % 2 == 0 else (0, 200, 0)
-            status_txt = self.status_font.render("✔ CFL ROUND FINISHED", True, status_color)
-            self.screen.blit(status_txt, (start_x, status_y))
-            self.show_status_timer -= 1  # Countdown frames
+            # Color box
+            pygame.draw.rect(self.screen, color, (start_x, y + 5, 15, 15))
+
+            # Text
+            txt = self.font.render(f"Cluster {i}: {stats[i]} agents", True, (180, 180, 180))
+            self.screen.blit(txt, (start_x + 25, y))
+            y += line_h
+
+        y += 20
+        pygame.draw.line(self.screen, (80, 80, 80), (start_x, y), (SIM_WIDTH + GUI_WIDTH - 20, y), 1)
+        y += 10
+        self.screen.blit(self.font_small.render("Check terminal for details...", True, (150, 150, 150)), (start_x, y))
+
+        # DRAW BOMB BUTTON
+        pygame.draw.rect(self.screen, self.bomb_color, self.bomb_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (255, 100, 100), self.bomb_rect, 2, border_radius=8)  # Border
+
+        # Center the text
+        text_rect = self.bomb_text.get_rect(center=self.bomb_rect.center)
+        self.screen.blit(self.bomb_text, text_rect)
 
     def run(self):
-        """Runs the game
-        """
         while self.game_running:
-
-            # Obrada događaja
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.game_running = False
+                if event.type == pygame.QUIT: self.game_running = False
 
-            # 1.1. Lokalni trening
+                # CHECK MOUSE CLICK
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.bomb_rect.collidepoint(event.pos):
+                        print("\n!!! KA-BOOM !!! - Swarm disrupted.")
+                        self.trigger_explosion()
+
+            # --- LOCAL TRAINING ---
             for p in self.all_particles:
-                local_train(p, learning_rate=0.05) # Spora stopa učenja
+                real_target_pos = self.cluster_targets[p.target_idx]
+                local_train(p, real_target_pos, learning_rate=0.5)
 
-            # 1.2. Globalna CFL runda (grupiranje i agregacija)
+            # --- GLOBAL CFL ROUND & LOGGING ---
             self.cluster_update_timer += 1
             if self.cluster_update_timer >= self.cluster_update_interval:
                 self.cluster_update_timer = 0
-                print(f"--- Pokrećem CFL rundu grupiranja na {len(self.all_particles)} čestica ---")
-                run_cfl_round(self.all_particles, self.kmeans)
-                self.show_status_timer = 90
+                self.cfl_round_counter += 1
 
-            # Privlačenje je NEGATIVNO, Odbijanje je POZITIVNO
-            G_ATTRACT = -500.0
-            G_REPEL = 150.0
+                # 1. Run the Clustering
+                transfers = run_cfl_round(self.all_particles, self.kmeans)
 
-            apply_physics_rules(self.all_particles, G_ATTRACT, G_REPEL, self.dt)
+                # 2. LOGGING TO TERMINAL
+                inertia = self.kmeans.inertia_
+                iterations = self.kmeans.n_iter_
 
-            # --- CRTANJE ---
-            self.screen.fill(BACK_BLACK)
+                # Count sizes for log
+                counts = {}
+                for p in self.all_particles:
+                    counts[p.cluster_id] = counts.get(p.cluster_id, 0) + 1
 
+                print(f"\n[ROUND {self.cfl_round_counter}] CFL Complete")
+                print(f"   > Inertia:       {inertia:.2f}")
+                print(f"   > Cluster Sizes: {dict(sorted(counts.items()))}")
+
+                print(f"   > Migrations (Transfers):")
+                if not transfers:
+                    print("       (Stable - No particles switched clusters)")
+                else:
+                    # Sort by number of particles moving (highest first)
+                    sorted_transfers = sorted(transfers.items(), key=lambda item: item[1], reverse=True)
+
+                    for (old_id, new_id), count in sorted_transfers:
+                        # Handle the very first round where old_id is -1
+                        src_name = "Unassigned" if old_id == -1 else f"Cluster {old_id}"
+                        print(f"       - {count:3d} agents moved: {src_name} -> Cluster {new_id}")
+
+                print("-" * 50)
+
+            # --- PHYSICS ---
+            # Use weaker attraction (-50) and strong motive logic
+            apply_physics_rules(self.all_particles, -200.0, 150.0, self.dt)
+
+            # --- DRAWING ---
+            self.screen.fill(BACK_BLACK)  # Fills whole screen black
+
+            # Draw Boundaries of Simulation
+            pygame.draw.rect(self.screen, (20, 20, 20), (0, 0, SIM_WIDTH, SIM_HEIGHT))
+
+            # Draw Particles
             for particle in self.all_particles:
-                # Koristi dinamički generirane boje klastera
+                # Tint based on cluster
                 viz_color = self.cluster_colors.get(particle.cluster_id, (0xff, 0xff, 0xff))
-
-                original_color = particle.c
                 particle.c = viz_color
                 particle.draw(self.screen)
-                particle.c = original_color
 
+            # Draw Sidebar
             self.draw_gui()
+
             pygame.display.flip()
             self.dt = self.clock.tick(FRAME_RATE) / 1000.0
 
-            # Ograniči FPS i izračunaj delta-time (dt)
-            self.dt = self.clock.tick(FRAME_RATE) / 1000.0
+    def trigger_explosion(self):
+        """
+        Creates a massive disruption:
+        1. Physical: Scatters particles with high velocity.
+        2. Cognitive: Resets their learned models (Memory Loss).
+        """
+        center_x, center_y = SIM_WIDTH // 2, SIM_HEIGHT // 2
 
+        for p in self.all_particles:
+            # 1. PHYSICAL CHAOS (Random High Velocity)
+            p.vx = random.uniform(-80, 80)
+            p.vy = random.uniform(-80, 80)
+
+            # Teleport them slightly to break clumps instantly
+            p.x += random.uniform(-400, 400)
+            p.y += random.uniform(-200, 200)
+
+            # 2. CHAOS
+            p.model = np.random.rand(2) * 2 - 1
+            p.model = p.model / np.linalg.norm(p.model)
 
     def quit(self):
-        """Quits the game
-        """
         pygame.quit()
