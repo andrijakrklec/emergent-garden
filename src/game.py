@@ -12,7 +12,7 @@ from src.constants import (
 )
 from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules
 
-MIN_CLUSTERS = 2
+MIN_CLUSTERS = 5
 MAX_CLUSTERS = 5
 
 
@@ -66,7 +66,7 @@ class Game:
         # --- CFL SETUP ---
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
         self.cluster_update_timer = 0
-        self.cluster_update_interval = 180
+        self.cluster_update_interval = 5*60
 
         # DEFINE BOMB BUTTON (Bottom of Sidebar)
         btn_x = SIM_WIDTH + 20
@@ -194,7 +194,7 @@ class Game:
 
             # --- PHYSICS ---
             # Use weaker attraction (-50) and strong motive logic
-            apply_physics_rules(self.all_particles, -200.0, 150.0, self.dt)
+            apply_physics_rules(self.all_particles, -250.0, 100.0, self.dt)
 
             # --- DRAWING ---
             self.screen.fill(BACK_BLACK)  # Fills whole screen black
