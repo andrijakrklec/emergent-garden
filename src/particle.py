@@ -1,23 +1,18 @@
 """
 AUTHOR: Vishal Paudel
-(Modificirano za CFL simulaciju)
+(Modified: CFL removed, Standard Particle Physics)
 """
 from typing import Tuple, List
 from ctypes import c_ubyte
-from collections import defaultdict
-
 import pygame
 import random
-import math
 import numpy as np
-from sklearn.cluster import KMeans
-
 
 from src.constants import (
     SIM_DIM,
-    PARTICLE_DEFAULT_RADIUS, SCREEN_DIM, WALL_HEAT, WALL_BOUNDARY,
+    PARTICLE_DEFAULT_RADIUS, WALL_BOUNDARY,
     PARTICLE_FORCE_LOWER_RANGE, PARTICLE_FORCE_UPPER_RANGE,
-    PARTICLE_POWER_OF_DISTANCE, PARTICLE_DEFAULT_UPDATE_TIME, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED
+    PARTICLE_POWER_OF_DISTANCE, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED
 )
 
 class Particle:
@@ -26,7 +21,7 @@ class Particle:
         x: Tuple[int, int],
         v: Tuple[float, float],
         c: Tuple[c_ubyte, c_ubyte, c_ubyte],
-        target_idx: int,
+        cluster_id: int,
         r: float = PARTICLE_DEFAULT_RADIUS
         ):
         """Initializes a particle
@@ -35,8 +30,8 @@ class Particle:
             x   (Tuple[int, int]):      The postion     vector  of the particle
             v   (Tuple[float, float]):  The velocity    vector  of the particle
             c   (Tuple[int, int, int]): The color       RGB     of the particle
+            cluster_id (int):           The group ID this particle belongs to
             r   (int):                  The radius      pixel   of the particle
-            target_pos (Tuple[int, int]): The "hidden" target for this particle (its "local data")
         """
         # The position attributes
         self.x = x[0]
@@ -50,103 +45,19 @@ class Particle:
         self.c = c
         self.r = r
 
-        # --- NOVO: CFL Atributi ---
-        self.target_idx = target_idx # "Lokalni podaci"
-
-        # "Lokalni model" - Inicijaliziramo ga kao nasumični 2D vektor
-        self.model = np.random.rand(2) * 2 - 1
-        self.model = self.model / np.linalg.norm(self.model) # Normaliziramo
-
-        self.cluster_id = -1 # Pripadnost klasteru (-1 = nije dodijeljen)
-
-
-    def update(self, dt: float):
-        """Updates the attributes of the particle
-
-        Args:
-            dt (float): The delta time, time since the last frame update
-        """
-        # (Ova funkcija se trenutno ne koristi, fizika se rješava centralno)
-        pass
-
+        # Fixed Group ID (Determines physics interactions)
+        self.cluster_id = cluster_id
 
     def draw(self, screen: pygame.Surface):
-        """Draws the particle(a circle)
-
-        Args:
-            screen (pygame.Surface):    The     screen  to draw onto
-        """
+        """Draws the particle(a circle)"""
         pygame.draw.circle(screen, self.c, (self.x, self.y), self.r)
 
 
-def local_train(particle: Particle, current_target_pos: Tuple[int, int], learning_rate: float = 0.1):
-    """
-    Simulates local training.
-    We pass 'current_target_pos' from the game loop so the particle
-    always trains on the REAL current location of its target.
-    """
-    # Calculate vector pointing to the target
-    target_vec = np.array([
-        current_target_pos[0] - particle.x,
-        current_target_pos[1] - particle.y
-    ])
-
-    # Normalize target vector
-    norm = np.linalg.norm(target_vec)
-    if norm > 0:
-        target_vec = target_vec / norm
-
-    # Gradient descent step (Update model)
-    particle.model = particle.model + learning_rate * target_vec
-
-    # Re-normalize model to keep it a unit vector
-    norm_model = np.linalg.norm(particle.model)
-    if norm_model > 0:
-        particle.model = particle.model / norm_model
-
-
-def run_cfl_round(particles: List[Particle], kmeans_model: KMeans):
-    """
-    Runs CFL and returns a dictionary of transfers: {(old_id, new_id): count}
-    """
-    if not particles:
-        return {}
-
-    # 1. Capture Old State (Before training changes anything)
-    old_ids = [p.cluster_id for p in particles]
-
-    # 2. Standard KMeans Steps
-    all_models = np.array([p.model for p in particles])
-    new_labels = kmeans_model.fit_predict(all_models)
-    cluster_centers = kmeans_model.cluster_centers_
-
-    # 3. Update Particles and Track Transfers
-    transfers = defaultdict(int)
-
-    for i, p in enumerate(particles):
-        old_id = old_ids[i]
-        new_id = new_labels[i]
-
-        # Record Transfer if the cluster changed
-        if old_id != new_id:
-            transfers[(old_id, new_id)] += 1
-
-        # Apply Updates
-        p.cluster_id = new_id
-
-        # Federated Aggregation (Average the model)
-        new_model = cluster_centers[new_id]
-        norm = np.linalg.norm(new_model)
-        if norm > 0:
-            p.model = new_model / norm
-        else:
-            p.model = new_model
-
-    return transfers
-
 def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: float, dt: float):
     """
-    Revised Physics: Prevents stacking by adding emergency repulsion.
+    Standard Particle Physics:
+    - Same cluster_id: Attract
+    - Different cluster_id: Repel
     """
     # Initialize forces
     forces = [np.zeros(2) for _ in particles]
@@ -180,12 +91,10 @@ def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: fl
             else:
                 g = 0.0
 
-                # Only interact if both have a valid cluster
-                if a.cluster_id != -1 and b.cluster_id != -1:
-                    if a.cluster_id == b.cluster_id:
-                        g = g_attract  # Attraction
-                    else:
-                        g = g_repel  # Repulsion
+                if a.cluster_id == b.cluster_id:
+                    g = g_attract  # Attraction
+                else:
+                    g = g_repel  # Repulsion
 
                 # Standard Gravity Formula
                 denom = (d ** PARTICLE_POWER_OF_DISTANCE) * len(particles)
@@ -218,8 +127,6 @@ def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: fl
         p.y += p.vy * dt
 
         # --- UPDATED WALL COLLISIONS ---
-        # Use SIM_DIM[0] and SIM_DIM[1] instead of SCREEN_DIM
-
         V = 0.9
         D = WALL_BOUNDARY
 
@@ -228,7 +135,7 @@ def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: fl
             p.x = D
             p.vx *= -V
 
-        # Right Wall (Now uses simulation width, not window width)
+        # Right Wall
         if p.x > SIM_DIM[0] - D:
             p.x = SIM_DIM[0] - D
             p.vx *= -V
@@ -247,19 +154,9 @@ def instantiateGroup(
     num: int,
     c: tuple,
     frame: Tuple[Tuple[int, int], Tuple[int, int]],
-    target_idx: int
+    cluster_id: int
     ) -> List[Particle]:
-    """Method to instantiate a group of particles
-
-    Args:
-        num     (int):                                      The number          of particles in the group
-        c       (tuple):                                    The color           of the group
-        frame   (Tuple[Tuple[int, int], Tuple[int, int]]):  The cordinate frame for the group to spawn in
-        target_pos (Tuple[int, int]):                       The hidden target   for this group
-
-    Returns:
-        group   List[Particle]:                             The list    of particles        in the group
-    """
+    """Method to instantiate a group of particles"""
     random.seed()
     group = []
 
@@ -267,7 +164,7 @@ def instantiateGroup(
         x = random.randint(frame[0][0], frame[0][1])
         y = random.randint(frame[1][0], frame[1][1])
 
-        # Pass target_idx to the Particle constructor
-        group.append(Particle(x=(x, y), v=(0.0, 0.0), c=c, target_idx=target_idx))
+        # Pass cluster_id directly
+        group.append(Particle(x=(x, y), v=(0.0, 0.0), c=c, cluster_id=cluster_id))
 
     return group
