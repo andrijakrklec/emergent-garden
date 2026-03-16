@@ -50,10 +50,8 @@ class Particle:
         self.c = c
         self.r = r
 
-        # --- NOVO: CFL Atributi ---
         self.target_idx = target_idx # "Lokalni podaci"
 
-        # "Lokalni model" - Inicijaliziramo ga kao nasumični 2D vektor
         self.model = np.random.rand(2) * 2 - 1
         self.model = self.model / np.linalg.norm(self.model) # Normaliziramo
 
@@ -79,72 +77,53 @@ class Particle:
         pygame.draw.circle(screen, self.c, (self.x, self.y), self.r)
 
 
-def local_train(particle: Particle, current_target_pos: Tuple[int, int], learning_rate: float = 0.1):
+def local_train(particle: Particle, current_target_pos: Tuple[int, int], obstacles: List[Tuple[int, int, int]],
+                learning_rate: float = 0.1):
     """
-    Simulates local training.
-    We pass 'current_target_pos' from the game loop so the particle
-    always trains on the REAL current location of its target.
+    Simulates local training with obstacle avoidance.
     """
-    # Calculate vector pointing to the target
-    target_vec = np.array([
-        current_target_pos[0] - particle.x,
-        current_target_pos[1] - particle.y
-    ])
+    # 1. Calculate ideal vector to the target (Attraction)
+    tx = current_target_pos[0] - particle.x
+    ty = current_target_pos[1] - particle.y
+    dist_t = math.hypot(tx, ty)
 
-    # Normalize target vector
-    norm = np.linalg.norm(target_vec)
-    if norm > 0:
-        target_vec = target_vec / norm
+    if dist_t > 0:
+        tx, ty = tx / dist_t, ty / dist_t
 
-    # Gradient descent step (Update model)
-    particle.model = particle.model + learning_rate * target_vec
+    # 2. Calculate vector away from obstacles (Repulsion)
+    ox_total, oy_total = 0.0, 0.0
+    for ox, oy, orad in obstacles:
+        dx = particle.x - ox
+        dy = particle.y - oy
+        dist_o = math.hypot(dx, dy)
 
-    # Re-normalize model to keep it a unit vector
+        # Sensor range (e.g., obstacle radius + 60 pixels)
+        sense_radius = orad + 60
+        if 0 < dist_o < sense_radius:
+            # The closer they are, the harder they push away
+            push_strength = (sense_radius - dist_o) / sense_radius
+            ox_total += (dx / dist_o) * push_strength
+            oy_total += (dy / dist_o) * push_strength
+
+    # 3. Combine vectors to find the new 'Ideal' direction
+    # We weight the obstacle avoidance heavily (x2.5) so they prioritize survival
+    ideal_x = tx + (ox_total * 2.5)
+    ideal_y = ty + (oy_total * 2.5)
+
+    norm_ideal = math.hypot(ideal_x, ideal_y)
+    if norm_ideal > 0:
+        ideal_x, ideal_y = ideal_x / norm_ideal, ideal_y / norm_ideal
+
+    # 4. Gradient descent: Move current learned model towards the ideal direction
+    particle.model[0] += learning_rate * (ideal_x - particle.model[0])
+    particle.model[1] += learning_rate * (ideal_y - particle.model[1])
+
+    # Re-normalize model to keep it a unit direction vector
     norm_model = np.linalg.norm(particle.model)
     if norm_model > 0:
         particle.model = particle.model / norm_model
 
-
-def run_cfl_round(particles: List[Particle], kmeans_model: KMeans):
-    """
-    Runs CFL and returns a dictionary of transfers: {(old_id, new_id): count}
-    """
-    if not particles:
-        return {}
-
-    # 1. Capture Old State (Before training changes anything)
-    old_ids = [p.cluster_id for p in particles]
-
-    # 2. Standard KMeans Steps
-    all_models = np.array([p.model for p in particles])
-    new_labels = kmeans_model.fit_predict(all_models)
-    cluster_centers = kmeans_model.cluster_centers_
-
-    # 3. Update Particles and Track Transfers
-    transfers = defaultdict(int)
-
-    for i, p in enumerate(particles):
-        old_id = old_ids[i]
-        new_id = new_labels[i]
-
-        # Record Transfer if the cluster changed
-        if old_id != new_id:
-            transfers[(old_id, new_id)] += 1
-
-        # Apply Updates
-        p.cluster_id = new_id
-
-        # Federated Aggregation (Average the model)
-        new_model = cluster_centers[new_id]
-        norm = np.linalg.norm(new_model)
-        if norm > 0:
-            p.model = new_model / norm
-        else:
-            p.model = new_model
-
-    return transfers
-
-def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: float, dt: float):
+def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float):
     """
     Revised Physics: Prevents stacking by adding emergency repulsion.
     """
@@ -217,6 +196,19 @@ def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: fl
         p.x += p.vx * dt
         p.y += p.vy * dt
 
+        # --- HARD PHYSICAL COLLISIONS WITH OBSTACLES ---
+        for ox, oy, orad in obstacles:
+            dx, dy = p.x - ox, p.y - oy
+            dist = math.hypot(dx, dy)
+
+            # If they physically hit the obstacle, push them out
+            if dist < orad + p.r:
+                overlap = (orad + p.r) - dist
+                if dist > 0:
+                    # Positional correction ONLY. Do not touch vx/vy!
+                    p.x += (dx / dist) * overlap
+                    p.y += (dy / dist) * overlap
+
         # --- UPDATED WALL COLLISIONS ---
         # Use SIM_DIM[0] and SIM_DIM[1] instead of SCREEN_DIM
 
@@ -242,6 +234,45 @@ def apply_physics_rules(particles: List[Particle], g_attract: float, g_repel: fl
         if p.y > SIM_DIM[1] - D:
             p.y = SIM_DIM[1] - D
             p.vy *= -V
+
+def run_cfl_round(particles: List[Particle], kmeans_model: KMeans):
+    """
+    Runs CFL and returns a dictionary of transfers: {(old_id, new_id): count}
+    """
+    if not particles:
+        return {}
+
+    # 1. Capture Old State (Before training changes anything)
+    old_ids = [p.cluster_id for p in particles]
+
+    # 2. Standard KMeans Steps
+    all_models = np.array([p.model for p in particles])
+    new_labels = kmeans_model.fit_predict(all_models)
+    cluster_centers = kmeans_model.cluster_centers_
+
+    # 3. Update Particles and Track Transfers
+    transfers = defaultdict(int)
+
+    for i, p in enumerate(particles):
+        old_id = old_ids[i]
+        new_id = new_labels[i]
+
+        # Record Transfer if the cluster changed
+        if old_id != new_id:
+            transfers[(old_id, new_id)] += 1
+
+        # Apply Updates
+        p.cluster_id = new_id
+
+        # Federated Aggregation (Average the model)
+        new_model = cluster_centers[new_id]
+        norm = np.linalg.norm(new_model)
+        if norm > 0:
+            p.model = new_model / norm
+        else:
+            p.model = new_model
+
+    return transfers
 
 def instantiateGroup(
     num: int,

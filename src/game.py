@@ -31,9 +31,9 @@ class Game:
         pygame.display.set_caption("CFL Simulation")
 
         self.dt = 0.1
-        self.cfl_round_counter = 0  # Track how many rounds happened
+        self.cfl_round_counter = 0
 
-        # --- SETUP CLUSTERS & TARGETS (Previous logic) ---
+        # --- SETUP CLUSTERS & TARGETS ---
         self.num_clusters = random.randint(MIN_CLUSTERS, MAX_CLUSTERS)
         self.cluster_anchors = []
         self.cluster_targets = []
@@ -67,6 +67,16 @@ class Game:
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
         self.cluster_update_timer = 0
         self.cluster_update_interval = 180
+
+        # --- SETUP OBSTACLES ---
+        self.obstacles = []
+        num_obstacles = 4
+        for _ in range(num_obstacles):
+            # (x, y, radius)
+            ox = random.randint(150, SIM_WIDTH - 150)
+            oy = random.randint(150, SIM_HEIGHT - 150)
+            orad = random.randint(30, 70)
+            self.obstacles.append((ox, oy, orad))
 
         # DEFINE BOMB BUTTON (Bottom of Sidebar)
         btn_x = SIM_WIDTH + 20
@@ -154,7 +164,7 @@ class Game:
             # --- LOCAL TRAINING ---
             for p in self.all_particles:
                 real_target_pos = self.cluster_targets[p.target_idx]
-                local_train(p, real_target_pos, learning_rate=0.5)
+                local_train(p, real_target_pos, self.obstacles, learning_rate=0.05)
 
             # --- GLOBAL CFL ROUND & LOGGING ---
             self.cluster_update_timer += 1
@@ -193,14 +203,26 @@ class Game:
                 print("-" * 50)
 
             # --- PHYSICS ---
-            # Use weaker attraction (-50) and strong motive logic
-            apply_physics_rules(self.all_particles, -200.0, 150.0, self.dt)
+            # using attract == repel
+            apply_physics_rules(self.all_particles, self.obstacles, -150.0, 150.0, self.dt)
 
             # --- DRAWING ---
             self.screen.fill(BACK_BLACK)  # Fills whole screen black
 
             # Draw Boundaries of Simulation
             pygame.draw.rect(self.screen, (20, 20, 20), (0, 0, SIM_WIDTH, SIM_HEIGHT))
+
+            # Draw Obstacles
+            for ox, oy, orad in self.obstacles:
+                pygame.draw.circle(self.screen, (50, 50, 50), (ox, oy), orad)
+                pygame.draw.circle(self.screen, (150, 50, 50), (ox, oy), orad, 2)  # Red border
+
+            # Draw Targets (Crosshairs so you can see where they are going)
+            for idx, (tx, ty) in enumerate(self.cluster_targets):
+                color = self.cluster_colors.get(idx, (255, 255, 255))
+                pygame.draw.circle(self.screen, color, (tx, ty), 10, 1)
+                pygame.draw.line(self.screen, color, (tx - 15, ty), (tx + 15, ty), 1)
+                pygame.draw.line(self.screen, color, (tx, ty - 15), (tx, ty + 15), 1)
 
             # Draw Particles
             for particle in self.all_particles:
@@ -232,7 +254,6 @@ class Game:
             p.x += random.uniform(-400, 400)
             p.y += random.uniform(-200, 200)
 
-            # 2. CHAOS
             p.model = np.random.rand(2) * 2 - 1
             p.model = p.model / np.linalg.norm(p.model)
 
