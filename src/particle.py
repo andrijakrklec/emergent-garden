@@ -21,41 +21,41 @@ from src.constants import (
 )
 
 class Particle:
-    def __init__(
-        self,
-        x: Tuple[int, int],
-        v: Tuple[float, float],
-        c: Tuple[c_ubyte, c_ubyte, c_ubyte],
-        target_idx: int,
-        r: float = PARTICLE_DEFAULT_RADIUS
-        ):
-        """Initializes a particle
-
-        Args:
-            x   (Tuple[int, int]):      The postion     vector  of the particle
-            v   (Tuple[float, float]):  The velocity    vector  of the particle
-            c   (Tuple[int, int, int]): The color       RGB     of the particle
-            r   (int):                  The radius      pixel   of the particle
-            target_pos (Tuple[int, int]): The "hidden" target for this particle (its "local data")
-        """
-        # The position attributes
+    def __init__(self, x, v, c, target_idx, r=PARTICLE_DEFAULT_RADIUS):
         self.x = x[0]
         self.y = x[1]
-
-        # The velocity attributes
         self.vx = v[0]
         self.vy = v[1]
-
-        # The look and feel attributes
         self.c = c
         self.r = r
+        self.target_idx = target_idx
+        self.cluster_id = -1
 
-        self.target_idx = target_idx # "Lokalni podaci"
+        # 8-dimensional model:
+        # [0] dir_x, [1] dir_y — learned heading (unit vector, as before)
+        # [2] confidence       — 0..1, how consistently this particle converges
+        # [3] obstacle_pressure — 0..1, decaying memory of recent obstacle hits
+        # [4] peer_alignment   — 0..1, cosine sim to same-cluster neighbors
+        # [5] rounds_stable    — normalised count of rounds without cluster change
+        # [6] local_loss       — normalised distance to personal target
+        # [7] drift_velocity   — normalised recent average speed
+        direction = np.random.randn(2)
+        direction /= np.linalg.norm(direction)
+        self.model = np.array([
+            direction[0],
+            direction[1],
+            0.5,  # start with middling confidence
+            0.0,  # no obstacle pressure yet
+            0.0,  # no peer alignment computed yet
+            0.0,  # not stable yet
+            1.0,  # assume far from target initially
+            0.0,  # not moving yet
+        ], dtype=np.float64)
 
-        self.model = np.random.rand(2) * 2 - 1
-        self.model = self.model / np.linalg.norm(self.model) # Normaliziramo
-
-        self.cluster_id = -1 # Pripadnost klasteru (-1 = nije dodijeljen)
+        # Internal bookkeeping
+        self._prev_cluster_id = -1
+        self._stable_rounds = 0
+        self._speed_ema = 0.0  # exponential moving average of speed
 
 
     def update(self, dt: float):
@@ -77,51 +77,92 @@ class Particle:
         pygame.draw.circle(screen, self.c, (self.x, self.y), self.r)
 
 
-def local_train(particle: Particle, current_target_pos: Tuple[int, int], obstacles: List[Tuple[int, int, int]],
-                learning_rate: float = 0.1):
-    """
-    Simulates local training with obstacle avoidance.
-    """
-    # 1. Calculate ideal vector to the target (Attraction)
+def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     tx = current_target_pos[0] - particle.x
     ty = current_target_pos[1] - particle.y
     dist_t = math.hypot(tx, ty)
 
     if dist_t > 0:
-        tx, ty = tx / dist_t, ty / dist_t
+        tx_n, ty_n = tx / dist_t, ty / dist_t
+    else:
+        tx_n, ty_n = 0.0, 0.0
 
-    # 2. Calculate vector away from obstacles (Repulsion)
+    # --- Obstacle repulsion ---
     ox_total, oy_total = 0.0, 0.0
+    raw_pressure = 0.0
     for ox, oy, orad in obstacles:
         dx = particle.x - ox
         dy = particle.y - oy
         dist_o = math.hypot(dx, dy)
-
-        # Sensor range (e.g., obstacle radius + 60 pixels)
         sense_radius = orad + 60
         if 0 < dist_o < sense_radius:
-            # The closer they are, the harder they push away
-            push_strength = (sense_radius - dist_o) / sense_radius
-            ox_total += (dx / dist_o) * push_strength
-            oy_total += (dy / dist_o) * push_strength
+            push = (sense_radius - dist_o) / sense_radius
+            ox_total += (dx / dist_o) * push
+            oy_total += (dy / dist_o) * push
+            raw_pressure += push
 
-    # 3. Combine vectors to find the new 'Ideal' direction
-    # We weight the obstacle avoidance heavily (x2.5) so they prioritize survival
-    ideal_x = tx + (ox_total * 2.5)
-    ideal_y = ty + (oy_total * 2.5)
+    ideal_x = tx_n + ox_total * 2.5
+    ideal_y = ty_n + oy_total * 2.5
+    norm = math.hypot(ideal_x, ideal_y)
+    if norm > 0:
+        ideal_x, ideal_y = ideal_x / norm, ideal_y / norm
 
-    norm_ideal = math.hypot(ideal_x, ideal_y)
-    if norm_ideal > 0:
-        ideal_x, ideal_y = ideal_x / norm_ideal, ideal_y / norm_ideal
-
-    # 4. Gradient descent: Move current learned model towards the ideal direction
+    # --- Update [0:2]: direction (gradient descent as before) ---
     particle.model[0] += learning_rate * (ideal_x - particle.model[0])
     particle.model[1] += learning_rate * (ideal_y - particle.model[1])
+    norm_m = np.linalg.norm(particle.model[0:2])
+    if norm_m > 0:
+        particle.model[0:2] /= norm_m
 
-    # Re-normalize model to keep it a unit direction vector
-    norm_model = np.linalg.norm(particle.model)
-    if norm_model > 0:
-        particle.model = particle.model / norm_model
+    # --- Update [2]: confidence ---
+    # Alignment between current heading and ideal direction is our proxy for "is training working?"
+    alignment = particle.model[0] * ideal_x + particle.model[1] * ideal_y  # -1..1
+    confidence_signal = (alignment + 1) / 2  # remap to 0..1
+    # Decay confidence if under obstacle pressure
+    confidence_signal *= max(0.0, 1.0 - raw_pressure)
+    particle.model[2] += 0.05 * (confidence_signal - particle.model[2])
+    particle.model[2] = np.clip(particle.model[2], 0.01, 1.0)
+
+    # --- Update [3]: obstacle_pressure (decaying memory) ---
+    particle.model[3] = 0.9 * particle.model[3] + 0.1 * min(raw_pressure, 1.0)
+
+    # --- Update [6]: local_loss (normalised distance to target) ---
+    max_dist = math.hypot(SIM_DIM[0], SIM_DIM[1])
+    particle.model[6] = min(dist_t / max_dist, 1.0)
+
+    # --- Update [7]: drift_velocity (EMA of speed) ---
+    speed = math.hypot(particle.vx, particle.vy)
+    particle._speed_ema = 0.95 * particle._speed_ema + 0.05 * speed
+    particle.model[7] = min(particle._speed_ema / PARTICLE_MAX_SPEED, 1.0)
+
+def update_peer_alignment(particles, neighbor_radius=90.0):
+    """Updates model[4] for every particle based on directional consensus with cluster neighbors."""
+    for p in particles:
+        if p.cluster_id == -1:
+            p.model[4] = 0.0
+            continue
+
+        neighbors = [
+            q for q in particles
+            if q is not p
+            and q.cluster_id == p.cluster_id
+            and math.hypot(q.x - p.x, q.y - p.y) < neighbor_radius
+        ]
+
+        if not neighbors:
+            p.model[4] = 0.0
+            continue
+
+        # Average direction of neighbors
+        avg_dx = sum(q.model[0] for q in neighbors) / len(neighbors)
+        avg_dy = sum(q.model[1] for q in neighbors) / len(neighbors)
+        norm = math.hypot(avg_dx, avg_dy)
+        if norm > 0:
+            avg_dx, avg_dy = avg_dx / norm, avg_dy / norm
+
+        # Cosine similarity between this particle's heading and the group average
+        cos_sim = p.model[0] * avg_dx + p.model[1] * avg_dy  # -1..1
+        p.model[4] = (cos_sim + 1) / 2  # remap to 0..1
 
 def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float):
     """
@@ -235,42 +276,59 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
             p.y = SIM_DIM[1] - D
             p.vy *= -V
 
-def run_cfl_round(particles: List[Particle], kmeans_model: KMeans):
-    """
-    Runs CFL and returns a dictionary of transfers: {(old_id, new_id): count}
-    """
+def run_cfl_round(particles, kmeans_model):
     if not particles:
         return {}
 
-    # 1. Capture Old State (Before training changes anything)
     old_ids = [p.cluster_id for p in particles]
 
-    # 2. Standard KMeans Steps
+    # KMeans still clusters on the full 8D model —
+    # this means particles with similar confidence, pressure, and alignment
+    # will cluster together, not just heading.
     all_models = np.array([p.model for p in particles])
     new_labels = kmeans_model.fit_predict(all_models)
-    cluster_centers = kmeans_model.cluster_centers_
 
-    # 3. Update Particles and Track Transfers
     transfers = defaultdict(int)
 
     for i, p in enumerate(particles):
         old_id = old_ids[i]
-        new_id = new_labels[i]
-
-        # Record Transfer if the cluster changed
+        new_id = int(new_labels[i])
         if old_id != new_id:
             transfers[(old_id, new_id)] += 1
-
-        # Apply Updates
         p.cluster_id = new_id
 
-        # Federated Aggregation (Average the model)
-        new_model = cluster_centers[new_id]
-        norm = np.linalg.norm(new_model)
-        if norm > 0:
-            p.model = new_model / norm
+    # Confidence-weighted federated aggregation per cluster
+    for cluster_id in range(kmeans_model.n_clusters):
+        members = [p for p in particles if p.cluster_id == cluster_id]
+        if not members:
+            continue
+
+        weights = np.array([p.model[2] for p in members])  # confidence
+        weights = weights / (weights.sum() + 1e-8)
+
+        aggregated = sum(w * p.model for w, p in zip(weights, members))
+
+        # Re-normalise the direction component after averaging
+        dir_norm = np.linalg.norm(aggregated[0:2])
+        if dir_norm > 0:
+            aggregated[0:2] /= dir_norm
+
+        for p in members:
+            # Blend: 40% own knowledge, 60% federated consensus
+            p.model = 0.4 * p.model + 0.6 * aggregated
+            # Clamp non-direction dimensions to valid ranges
+            p.model[2] = np.clip(p.model[2], 0.01, 1.0)
+            p.model[3] = np.clip(p.model[3], 0.0, 1.0)
+            p.model[4] = np.clip(p.model[4], 0.0, 1.0)
+
+    # Update rounds_stable [5]
+    for p in particles:
+        if p.cluster_id == p._prev_cluster_id:
+            p._stable_rounds = min(p._stable_rounds + 1, 50)
         else:
-            p.model = new_model
+            p._stable_rounds = 0
+        p._prev_cluster_id = p.cluster_id
+        p.model[5] = p._stable_rounds / 50.0
 
     return transfers
 

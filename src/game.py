@@ -10,7 +10,7 @@ from src.constants import (
     BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
     PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
 )
-from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules
+from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment
 
 MIN_CLUSTERS = 2
 MAX_CLUSTERS = 5
@@ -47,10 +47,15 @@ class Game:
             self.cluster_targets.append((x, y))
 
         # Colors
-        self.cluster_colors = {}
-        for i in range(self.num_clusters):
-            self.cluster_colors[i] = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
-        self.cluster_colors[-1] = (0x50, 0x50, 0x50)
+        CLUSTER_PALETTE = [
+            (220, 80, 80),  # red
+            (80, 160, 220),  # blue
+            (80, 200, 120),  # green
+            (220, 180, 60),  # amber
+            (180, 80, 220),  # purple
+        ]
+        self.cluster_colors = {i: CLUSTER_PALETTE[i] for i in range(self.num_clusters)}
+        self.cluster_colors[-1] = (80, 80, 80)  # unassigned
 
         # --- SPAWN PARTICLES ---
         self.all_particles = []
@@ -66,7 +71,7 @@ class Game:
         # --- CFL SETUP ---
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
         self.cluster_update_timer = 0
-        self.cluster_update_interval = 180
+        self.cluster_update_interval = 180*2
 
         # --- SETUP OBSTACLES ---
         self.obstacles = []
@@ -202,6 +207,8 @@ class Game:
 
                 print("-" * 50)
 
+            update_peer_alignment(self.all_particles)  # new — computes model[4]
+
             # --- PHYSICS ---
             # using attract == repel
             apply_physics_rules(self.all_particles, self.obstacles, -150.0, 150.0, self.dt)
@@ -254,8 +261,13 @@ class Game:
             p.x += random.uniform(-400, 400)
             p.y += random.uniform(-200, 200)
 
-            p.model = np.random.rand(2) * 2 - 1
-            p.model = p.model / np.linalg.norm(p.model)
+            p.model = np.array([
+                random.uniform(-1, 1), random.uniform(-1, 1),
+                0.1,  # very low confidence after explosion
+                0.8,  # high obstacle pressure (chaos)
+                0.0, 0.0, 1.0, 0.0
+            ])
+            p.model[0:2] /= np.linalg.norm(p.model[0:2])
 
     def quit(self):
         pygame.quit()
