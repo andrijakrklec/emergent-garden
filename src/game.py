@@ -10,10 +10,7 @@ from src.constants import (
     BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
     PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
 )
-from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment
-
-MIN_CLUSTERS = 2
-MAX_CLUSTERS = 5
+from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment, MIN_CLUSTERS, MAX_CLUSTERS
 
 
 class Game:
@@ -46,13 +43,16 @@ class Game:
             self.cluster_anchors.append((x, y))
             self.cluster_targets.append((x, y))
 
+        self.cooldown_counter = 0
+
         # Colors
         CLUSTER_PALETTE = [
-            (220, 80, 80),  # red
-            (80, 160, 220),  # blue
-            (80, 200, 120),  # green
-            (220, 180, 60),  # amber
-            (180, 80, 220),  # purple
+            (220, 80, 80),
+            (80, 160, 220),
+            (80, 200, 120),
+            (220, 180, 60),
+            (180, 80, 220),
+            (60, 210, 210),
         ]
         self.cluster_colors = {i: CLUSTER_PALETTE[i] for i in range(self.num_clusters)}
         self.cluster_colors[-1] = (80, 80, 80)  # unassigned
@@ -71,7 +71,7 @@ class Game:
         # --- CFL SETUP ---
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
         self.cluster_update_timer = 0
-        self.cluster_update_interval = 180*2
+        self.cluster_update_interval = 180*3
 
         # --- SETUP OBSTACLES ---
         self.obstacles = []
@@ -96,7 +96,14 @@ class Game:
         print(f"\n{'=' * 60}")
         print(f"INIT: Starting Simulation with {len(self.all_particles)} particles.")
         print(f"{'=' * 60}\n")
-        run_cfl_round(self.all_particles, self.kmeans)
+        _, self.kmeans, self.cluster_targets, self.cluster_colors, \
+            self.num_clusters, _, self.cooldown_counter = run_cfl_round(
+            self.all_particles,
+            self.kmeans,
+            self.cluster_targets,
+            self.cluster_colors,
+            self.cooldown_counter,
+        )
 
     def draw_gui(self):
         """Draws the GUI in the sidebar area (Right side)"""
@@ -177,12 +184,23 @@ class Game:
                 self.cluster_update_timer = 0
                 self.cfl_round_counter += 1
 
-                # 1. Run the Clustering
-                transfers = run_cfl_round(self.all_particles, self.kmeans)
+                transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
+                    self.num_clusters, event, self.cooldown_counter = run_cfl_round(
+                    self.all_particles,
+                    self.kmeans,
+                    self.cluster_targets,
+                    self.cluster_colors,
+                    self.cooldown_counter,
+                )
+
+                if event == 'split':
+                    print(f"   > SPLIT — now {self.num_clusters} clusters")
+                elif event == 'merge':
+                    print(f"   > MERGE — now {self.num_clusters} clusters")
 
                 # 2. LOGGING TO TERMINAL
-                inertia = self.kmeans.inertia_
-                iterations = self.kmeans.n_iter_
+                inertia = self.kmeans.inertia_ if hasattr(self.kmeans, 'inertia_') else 0.0
+                #iterations = self.kmeans.n_iter_
 
                 # Count sizes for log
                 counts = {}
