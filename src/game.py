@@ -10,7 +10,7 @@ from src.constants import (
     BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
     PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
 )
-from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment, MIN_CLUSTERS, MAX_CLUSTERS
+from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment, MIN_CLUSTERS, MAX_CLUSTERS, BLEND_MATURITY_ROUNDS
 
 
 class Game:
@@ -44,6 +44,7 @@ class Game:
             self.cluster_targets.append((x, y))
 
         self.cooldown_counter = 0
+        self.cluster_ages = {i: BLEND_MATURITY_ROUNDS for i in range(self.num_clusters)}
 
         # Colors
         CLUSTER_PALETTE = [
@@ -97,12 +98,9 @@ class Game:
         print(f"INIT: Starting Simulation with {len(self.all_particles)} particles.")
         print(f"{'=' * 60}\n")
         _, self.kmeans, self.cluster_targets, self.cluster_colors, \
-            self.num_clusters, _, self.cooldown_counter = run_cfl_round(
-            self.all_particles,
-            self.kmeans,
-            self.cluster_targets,
-            self.cluster_colors,
-            self.cooldown_counter,
+            self.cluster_ages, self.num_clusters, _, self.cooldown_counter = run_cfl_round(
+            self.all_particles, self.kmeans, self.cluster_targets,
+            self.cluster_colors, self.cluster_ages, self.cooldown_counter,
         )
 
     def draw_gui(self):
@@ -185,12 +183,9 @@ class Game:
                 self.cfl_round_counter += 1
 
                 transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
-                    self.num_clusters, event, self.cooldown_counter = run_cfl_round(
-                    self.all_particles,
-                    self.kmeans,
-                    self.cluster_targets,
-                    self.cluster_colors,
-                    self.cooldown_counter,
+                    self.cluster_ages, self.num_clusters, event, self.cooldown_counter = run_cfl_round(
+                    self.all_particles, self.kmeans, self.cluster_targets,
+                    self.cluster_colors, self.cluster_ages, self.cooldown_counter,
                 )
 
                 if event == 'split':

@@ -27,6 +27,10 @@ SPLIT_LOSS_THRESHOLD = 0.45    # avg local_loss above this triggers a split
 MERGE_SIMILARITY_THRESHOLD = 0.97  # cosine sim above this triggers a merge
 MIN_CLUSTER_SIZE = 3           # clusters smaller than this get absorbed
 
+BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
+BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
+BLEND_LOCAL_MATURE = 0.40   # local weight once matured (your existing value)
+
 class Particle:
     def __init__(self, x, v, c, target_idx, r=PARTICLE_DEFAULT_RADIUS):
         self.x = x[0]
@@ -303,13 +307,12 @@ def compute_cluster_stats(particles, n_clusters):
         }
     return stats
 
-def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cooldown_counter):
+def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter):
     """
-    Returns: (transfers, new_kmeans, new_targets, new_colors, new_n, event, cooldown)
-    event is one of: None, 'split', 'merge'
+    cluster_ages: dict {cluster_id: rounds_since_created}
     """
     if not particles:
-        return {}, kmeans_model, cluster_targets, cluster_colors, kmeans_model.n_clusters, None, cooldown_counter
+        return {}, kmeans_model, cluster_targets, cluster_colors, cluster_ages, kmeans_model.n_clusters, None, cooldown_counter
 
     n = kmeans_model.n_clusters
     old_ids = [p.cluster_id for p in particles]
@@ -325,19 +328,28 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cool
             transfers[(old_id, new_id)] += 1
         p.cluster_id = new_id
 
-    # Weighted aggregation (unchanged)
+    # --- Weighted aggregation with adaptive blend ratio ---
     for cid in range(n):
         members = [p for p in particles if p.cluster_id == cid]
         if not members:
             continue
+
         weights = np.array([p.model[2] for p in members])
         weights /= weights.sum() + 1e-8
+
         aggregated = sum(w * p.model for w, p in zip(weights, members))
         norm = np.linalg.norm(aggregated[0:2])
         if norm > 0:
             aggregated[0:2] /= norm
+
+        # Blend ratio depends on cluster age
+        age = cluster_ages.get(cid, BLEND_MATURITY_ROUNDS)
+        t = min(age / BLEND_MATURITY_ROUNDS, 1.0)  # 0.0 = newborn, 1.0 = mature
+        local_weight  = BLEND_LOCAL_NEW + t * (BLEND_LOCAL_MATURE - BLEND_LOCAL_NEW)
+        global_weight = 1.0 - local_weight
+
         for p in members:
-            p.model = 0.4 * p.model + 0.6 * aggregated
+            p.model = local_weight * p.model + global_weight * aggregated
             p.model[2] = np.clip(p.model[2], 0.01, 1.0)
             p.model[3:5] = np.clip(p.model[3:5], 0.0, 1.0)
 
@@ -350,13 +362,17 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cool
         p._prev_cluster_id = p.cluster_id
         p.model[5] = p._stable_rounds / 50.0
 
-    # --- RESTRUCTURING (only if cooldown has expired) ---
+    # Increment age for all existing clusters
+    for cid in range(n):
+        cluster_ages[cid] = cluster_ages.get(cid, 0) + 1
+
+    # --- Restructuring ---
     if cooldown_counter > 0:
-        return transfers, kmeans_model, cluster_targets, cluster_colors, n, None, cooldown_counter - 1
+        return transfers, kmeans_model, cluster_targets, cluster_colors, cluster_ages, n, None, cooldown_counter - 1
 
     stats = compute_cluster_stats(particles, n)
 
-    # 1. MERGE — find two clusters whose mean models are nearly identical
+    # MERGE
     if n > MIN_CLUSTERS:
         best_sim, merge_pair = -1.0, None
         for a in range(n):
@@ -365,19 +381,20 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cool
                 mb = stats[b]['mean_model']
                 if ma is None or mb is None:
                     continue
-                # Only compare direction components for similarity
+                # Don't merge clusters that are still young — let them diverge first
+                if cluster_ages.get(a, 0) < BLEND_MATURITY_ROUNDS or \
+                   cluster_ages.get(b, 0) < BLEND_MATURITY_ROUNDS:
+                    continue
                 sim = float(np.dot(ma[0:2], mb[0:2]))
                 if sim > best_sim:
                     best_sim, merge_pair = sim, (a, b)
 
         if best_sim >= MERGE_SIMILARITY_THRESHOLD and merge_pair:
             keep, drop = merge_pair
-            # Reassign all particles from drop -> keep
             for p in particles:
                 if p.cluster_id == drop:
                     p.cluster_id = keep
                     p._prev_cluster_id = keep
-            # Compact cluster ids: remap everything above drop down by 1
             for p in particles:
                 if p.cluster_id > drop:
                     p.cluster_id -= 1
@@ -387,11 +404,24 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cool
             new_colors  = {(i if i < drop else i - 1): c
                            for i, c in cluster_colors.items() if i != drop and i != -1}
             new_colors[-1] = cluster_colors[-1]
+
+            # Remap ages, drop the merged cluster
+            new_ages = {}
+            for cid, age in cluster_ages.items():
+                if cid == drop:
+                    continue
+                new_cid = cid if cid < drop else cid - 1
+                new_ages[new_cid] = age
+            # The surviving cluster inherits the older age
+            new_ages[keep if keep < drop else keep - 1] = max(
+                cluster_ages.get(keep, 0), cluster_ages.get(drop, 0)
+            )
+
             new_n = n - 1
             new_kmeans = KMeans(n_clusters=new_n, n_init=10, random_state=0)
-            return transfers, new_kmeans, new_targets, new_colors, new_n, 'merge', 10
+            return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, 'merge', 10
 
-    # 2. SPLIT — find the cluster with the highest avg_loss
+    # SPLIT
     if n < MAX_CLUSTERS:
         worst_cid = max(
             (cid for cid in range(n) if stats[cid]['size'] >= MIN_CLUSTER_SIZE * 2),
@@ -400,32 +430,31 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cool
         )
         if worst_cid is not None and stats[worst_cid]['avg_loss'] > SPLIT_LOSS_THRESHOLD:
             members = [p for p in particles if p.cluster_id == worst_cid]
-            # Split by direction: above/below median dir_x
             median_dx = np.median([p.model[0] for p in members])
-            new_cid = n  # the new cluster gets the next index
-            split_count = 0
+            new_cid = n
             for p in members:
                 if p.model[0] < median_dx:
                     p.cluster_id = new_cid
                     p._prev_cluster_id = new_cid
-                    split_count += 1
 
-            # New target: perturb the original
             ox, oy = cluster_targets[worst_cid]
             new_targets = cluster_targets + [(
                 int(np.clip(ox + random.randint(-150, 150), 50, SIM_WIDTH - 50)),
                 int(np.clip(oy + random.randint(-150, 150), 50, SIM_HEIGHT - 50))
             )]
-            # New color: pick one not already in use
             used = set(cluster_colors.values()) - {cluster_colors[-1]}
-            new_color = _pick_unused_color(used)
             new_colors = dict(cluster_colors)
-            new_colors[new_cid] = new_color
+            new_colors[new_cid] = _pick_unused_color(used)
+
+            # New cluster starts at age 0, parent keeps its age
+            new_ages = dict(cluster_ages)
+            new_ages[new_cid] = 0
+
             new_n = n + 1
             new_kmeans = KMeans(n_clusters=new_n, n_init=10, random_state=0)
-            return transfers, new_kmeans, new_targets, new_colors, new_n, 'split', 10
+            return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, 'split', 10
 
-    return transfers, kmeans_model, cluster_targets, cluster_colors, n, None, 0
+    return transfers, kmeans_model, cluster_targets, cluster_colors, cluster_ages, n, None, 0
 
 def instantiateGroup(
     num: int,
