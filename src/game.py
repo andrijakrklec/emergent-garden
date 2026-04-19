@@ -11,7 +11,7 @@ from src.constants import (
     PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
 )
 from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment, MIN_CLUSTERS, MAX_CLUSTERS, BLEND_MATURITY_ROUNDS
-
+from src.sim_logger import SimLogger
 
 class Game:
     def __init__(self):
@@ -103,6 +103,12 @@ class Game:
             self.cluster_colors, self.cluster_ages, self.cooldown_counter,
         )
 
+        self.logger = SimLogger(log_dir="logs")
+
+        max_idx = len(self.cluster_targets) - 1
+        for p in self.all_particles:
+            p.target_idx = min(p.target_idx, max_idx)
+
     def draw_gui(self):
         """Draws the GUI in the sidebar area (Right side)"""
 
@@ -188,6 +194,10 @@ class Game:
                     self.cluster_colors, self.cluster_ages, self.cooldown_counter,
                 )
 
+                max_idx = len(self.cluster_targets) - 1
+                for p in self.all_particles:
+                    p.target_idx = min(p.target_idx, max_idx)
+
                 if event == 'split':
                     print(f"   > SPLIT — now {self.num_clusters} clusters")
                 elif event == 'merge':
@@ -219,6 +229,19 @@ class Game:
                         print(f"       - {count:3d} agents moved: {src_name} -> Cluster {new_id}")
 
                 print("-" * 50)
+
+                self.logger.log_round(
+                    round_num=self.cfl_round_counter,
+                    particles=self.all_particles,
+                    kmeans=self.kmeans,
+                    cluster_targets=self.cluster_targets,
+                    transfers=transfers,
+                    event=event,
+                    num_clusters=self.num_clusters,
+                )
+
+                if self.cfl_round_counter % 10 == 0:
+                   self.logger.plot_all()
 
             update_peer_alignment(self.all_particles)  # new — computes model[4]
 
@@ -282,5 +305,8 @@ class Game:
             ])
             p.model[0:2] /= np.linalg.norm(p.model[0:2])
 
+        self.logger.log_explosion(self.cfl_round_counter)
+
     def quit(self):
+        self.logger.close()
         pygame.quit()

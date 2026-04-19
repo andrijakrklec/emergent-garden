@@ -419,6 +419,11 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
 
             new_n = n - 1
             new_kmeans = KMeans(n_clusters=new_n, n_init=10, random_state=0)
+
+            max_target_idx = len(new_targets) - 1
+            for p in particles:
+                p.target_idx = min(p.target_idx, max_target_idx)
+
             return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, 'merge', 10
 
     # SPLIT
@@ -452,6 +457,12 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
 
             new_n = n + 1
             new_kmeans = KMeans(n_clusters=new_n, n_init=10, random_state=0)
+
+            new_cid = n
+            for p in particles:
+                if p.cluster_id == new_cid:
+                    p.target_idx = len(new_targets) - 1
+
             return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, 'split', 10
 
     return transfers, kmeans_model, cluster_targets, cluster_colors, cluster_ages, n, None, 0
