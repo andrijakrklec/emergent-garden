@@ -29,6 +29,13 @@ MIN_CLUSTER_SIZE = 3           # clusters smaller than this get absorbed
 
 BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
 BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
+
+BEHAVIORAL_FORCE  = 2.0    # goal-directed push from model[0:2], scaled by confidence
+STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
+STRAGGLER_DRIFT   = 0.04   # drift_velocity threshold below which a particle is "stuck"
+
+OBSTACLE_SOFT_ZONE     = 50    # px beyond physical edge where pre-contact repulsion starts
+OBSTACLE_SOFT_STRENGTH = 120.0 # base strength of the soft-zone push
 BLEND_LOCAL_MATURE = 0.40   # local weight once matured (your existing value)
 
 class Particle:
@@ -105,32 +112,36 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
         dx = particle.x - ox
         dy = particle.y - oy
         dist_o = math.hypot(dx, dy)
-        sense_radius = orad + 60
+        sense_radius = orad + 100  # wider sensing range so avoidance starts earlier
         if 0 < dist_o < sense_radius:
-            push = (sense_radius - dist_o) / sense_radius
+            t = (sense_radius - dist_o) / sense_radius  # 0 at edge, 1 at surface
+            push = t * t * t  # cubic: steep near surface, gentle at distance
             ox_total += (dx / dist_o) * push
             oy_total += (dy / dist_o) * push
-            raw_pressure += push
+            raw_pressure += t  # linear for EMA (represents zone depth, not push force)
 
-    ideal_x = tx_n + ox_total * 2.5
-    ideal_y = ty_n + oy_total * 2.5
+    # Obstacle weight scales up as particle gets closer — escape dominates target near surface
+    obstacle_weight = 2.5 + raw_pressure * 1.5
+    ideal_x = tx_n + ox_total * obstacle_weight
+    ideal_y = ty_n + oy_total * obstacle_weight
     norm = math.hypot(ideal_x, ideal_y)
     if norm > 0:
         ideal_x, ideal_y = ideal_x / norm, ideal_y / norm
 
-    # --- Update [0:2]: direction (gradient descent as before) ---
-    particle.model[0] += learning_rate * (ideal_x - particle.model[0])
-    particle.model[1] += learning_rate * (ideal_y - particle.model[1])
+    # --- Update [0:2]: direction ---
+    # Learning rate scales with sustained pressure so the direction adapts faster when stuck
+    pressure_lr = min(learning_rate * (1.0 + particle.model[3] * 4.0), 0.5)
+    particle.model[0] += pressure_lr * (ideal_x - particle.model[0])
+    particle.model[1] += pressure_lr * (ideal_y - particle.model[1])
     norm_m = np.linalg.norm(particle.model[0:2])
     if norm_m > 0:
         particle.model[0:2] /= norm_m
 
     # --- Update [2]: confidence ---
-    # Alignment between current heading and ideal direction is our proxy for "is training working?"
     alignment = particle.model[0] * ideal_x + particle.model[1] * ideal_y  # -1..1
     confidence_signal = (alignment + 1) / 2  # remap to 0..1
-    # Decay confidence if under obstacle pressure
-    confidence_signal *= max(0.0, 1.0 - raw_pressure)
+    # Softer pressure penalty: killing confidence when stuck weakens the escape force
+    confidence_signal *= max(0.0, 1.0 - raw_pressure * 0.4)
     particle.model[2] += 0.05 * (confidence_signal - particle.model[2])
     particle.model[2] = np.clip(particle.model[2], 0.01, 1.0)
 
@@ -148,32 +159,41 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
 
 def update_peer_alignment(particles, neighbor_radius=90.0):
     """Updates model[4] for every particle based on directional consensus with cluster neighbors."""
-    for p in particles:
+    if not particles:
+        return
+
+    n = len(particles)
+    positions  = np.array([(p.x, p.y) for p in particles])        # (n, 2)
+    directions = np.array([p.model[0:2] for p in particles])       # (n, 2)
+    cids       = np.array([p.cluster_id for p in particles])       # (n,)
+
+    for i, p in enumerate(particles):
         if p.cluster_id == -1:
             p.model[4] = 0.0
             continue
 
-        neighbors = [
-            q for q in particles
-            if q is not p
-            and q.cluster_id == p.cluster_id
-            and math.hypot(q.x - p.x, q.y - p.y) < neighbor_radius
-        ]
+        same_cluster = (cids == p.cluster_id)
+        same_cluster[i] = False
 
-        if not neighbors:
+        if not np.any(same_cluster):
             p.model[4] = 0.0
             continue
 
-        # Average direction of neighbors
-        avg_dx = sum(q.model[0] for q in neighbors) / len(neighbors)
-        avg_dy = sum(q.model[1] for q in neighbors) / len(neighbors)
-        norm = math.hypot(avg_dx, avg_dy)
-        if norm > 0:
-            avg_dx, avg_dy = avg_dx / norm, avg_dy / norm
+        diffs = positions[same_cluster] - positions[i]             # (k, 2)
+        in_radius = np.linalg.norm(diffs, axis=1) < neighbor_radius
 
-        # Cosine similarity between this particle's heading and the group average
-        cos_sim = p.model[0] * avg_dx + p.model[1] * avg_dy  # -1..1
-        p.model[4] = (cos_sim + 1) / 2  # remap to 0..1
+        neighbor_dirs = directions[same_cluster][in_radius]        # (m, 2)
+        if len(neighbor_dirs) == 0:
+            p.model[4] = 0.0
+            continue
+
+        avg_dir = neighbor_dirs.mean(axis=0)
+        norm = np.linalg.norm(avg_dir)
+        if norm > 0:
+            avg_dir /= norm
+
+        cos_sim = float(np.dot(directions[i], avg_dir))
+        p.model[4] = (cos_sim + 1) / 2
 
 def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float):
     """
@@ -230,6 +250,31 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
             forces[i] += np.array([fx, fy])
             forces[j] -= np.array([fx, fy])
 
+    # Soft obstacle zone: pre-contact repulsion so particles redirect before touching.
+    # Quadratic falloff — very strong at the physical edge, tapers over OBSTACLE_SOFT_ZONE px.
+    for i, p in enumerate(particles):
+        for ox, oy, orad in obstacles:
+            dx, dy = p.x - ox, p.y - oy
+            dist = math.hypot(dx, dy)
+            if dist == 0:
+                continue
+            edge = orad + p.r
+            if dist < edge + OBSTACLE_SOFT_ZONE:
+                t = max(0.0, (edge + OBSTACLE_SOFT_ZONE - dist) / OBSTACLE_SOFT_ZONE)
+                push = OBSTACLE_SOFT_STRENGTH * t * t
+                forces[i][0] += (dx / dist) * push
+                forces[i][1] += (dy / dist) * push
+
+    # Behavioral force: model-directed push scaled by confidence.
+    # model[3] (obstacle_pressure) amplifies the force so sustained pressure
+    # translates directly into a stronger escape push.
+    for i, p in enumerate(particles):
+        if p.cluster_id != -1 and p.model[2] > 0.15:
+            pressure_boost = 1.0 + float(p.model[3]) * 1.25
+            strength = BEHAVIORAL_FORCE * float(p.model[2]) * pressure_boost
+            forces[i][0] += p.model[0] * strength
+            forces[i][1] += p.model[1] * strength
+
     # Apply forces to velocities and positions
     for i, p in enumerate(particles):
         fx, fy = forces[i]
@@ -257,9 +302,16 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
             if dist < orad + p.r:
                 overlap = (orad + p.r) - dist
                 if dist > 0:
-                    # Positional correction ONLY. Do not touch vx/vy!
-                    p.x += (dx / dist) * overlap
-                    p.y += (dy / dist) * overlap
+                    nx, ny = dx / dist, dy / dist
+                    p.x += nx * overlap
+                    p.y += ny * overlap
+                    # Reflect velocity along surface normal (only if moving toward obstacle)
+                    dot = p.vx * nx + p.vy * ny
+                    if dot < 0:
+                        p.vx -= 2 * dot * nx
+                        p.vy -= 2 * dot * ny
+                        p.vx *= 0.8
+                        p.vy *= 0.8
 
         # --- UPDATED WALL COLLISIONS ---
         # Use SIM_DIM[0] and SIM_DIM[1] instead of SCREEN_DIM
@@ -318,7 +370,20 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
     old_ids = [p.cluster_id for p in particles]
 
     all_models = np.array([p.model for p in particles])
-    new_labels = kmeans_model.fit_predict(all_models)
+
+    # Warm-start: use current cluster means as initial centroids to reduce label permutation
+    try:
+        init_centroids = np.array([
+            np.mean([p.model for p in particles if p.cluster_id == cid], axis=0)
+            if any(p.cluster_id == cid for p in particles)
+            else all_models[np.random.randint(len(all_models))]
+            for cid in range(n)
+        ])
+        warm_kmeans = KMeans(n_clusters=n, init=init_centroids, n_init=1, random_state=0)
+        new_labels = warm_kmeans.fit_predict(all_models)
+        kmeans_model = warm_kmeans
+    except Exception:
+        new_labels = kmeans_model.fit_predict(all_models)
 
     transfers = defaultdict(int)
     for i, p in enumerate(particles):
@@ -366,6 +431,22 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
     for cid in range(n):
         cluster_ages[cid] = cluster_ages.get(cid, 0) + 1
 
+    # Straggler rescue: particles with high loss and near-zero drift are stuck.
+    # Re-assign them to the spatially nearest cluster target every round
+    # (runs even during cooldown so stuck particles aren't left orphaned).
+    for p in particles:
+        if p.model[6] > STRAGGLER_LOSS and p.model[7] < STRAGGLER_DRIFT:
+            nearest = min(
+                range(len(cluster_targets)),
+                key=lambda i: math.hypot(p.x - cluster_targets[i][0],
+                                         p.y - cluster_targets[i][1])
+            )
+            if nearest != p.cluster_id:
+                p.cluster_id = nearest
+                p.target_idx = nearest
+                p._prev_cluster_id = -1
+                p._stable_rounds = 0
+
     # --- Restructuring ---
     if cooldown_counter > 0:
         return transfers, kmeans_model, cluster_targets, cluster_colors, cluster_ages, n, None, cooldown_counter - 1
@@ -394,7 +475,8 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
             for p in particles:
                 if p.cluster_id == drop:
                     p.cluster_id = keep
-                    p._prev_cluster_id = keep
+                    p._prev_cluster_id = -1  # force stability reset next round
+                    p._stable_rounds = 0
             for p in particles:
                 if p.cluster_id > drop:
                     p.cluster_id -= 1
@@ -435,12 +517,14 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
         )
         if worst_cid is not None and stats[worst_cid]['avg_loss'] > SPLIT_LOSS_THRESHOLD:
             members = [p for p in particles if p.cluster_id == worst_cid]
-            median_dx = np.median([p.model[0] for p in members])
+            # Split on spatial x-position: more stable than model heading
+            median_x = np.median([p.x for p in members])
             new_cid = n
             for p in members:
-                if p.model[0] < median_dx:
+                if p.x < median_x:
                     p.cluster_id = new_cid
-                    p._prev_cluster_id = new_cid
+                    p._prev_cluster_id = -1  # force stability reset
+                    p._stable_rounds = 0
 
             ox, oy = cluster_targets[worst_cid]
             new_targets = cluster_targets + [(

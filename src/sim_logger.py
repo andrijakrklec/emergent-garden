@@ -25,7 +25,6 @@ from __future__ import annotations
 import csv
 import json
 import os
-import math
 import traceback
 from collections import defaultdict
 from datetime import datetime
@@ -49,6 +48,15 @@ def _ensure_dir(path: str) -> None:
 
 def _ts() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _delta_arrow(current: float, previous: float, threshold: float = 0.005) -> str:
+    diff = current - previous
+    if diff > threshold:
+        return "↑"
+    if diff < -threshold:
+        return "↓"
+    return "~"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -82,7 +90,7 @@ class SimLogger:
         self._migrations_fh    = open(os.path.join(self.run_dir, "migrations.csv"),    "w", newline="")
         self._cluster_sizes_fh = open(os.path.join(self.run_dir, "cluster_sizes.csv"), "w", newline="")
         self._events_fh        = open(os.path.join(self.run_dir, "events.jsonl"),      "w")
-        self._log_fh           = open(os.path.join(self.run_dir, "sim_log.txt"),       "w")
+        self._log_fh           = open(os.path.join(self.run_dir, "sim_log.txt"),       "w", encoding="utf-8")
 
         self._rounds_writer = csv.DictWriter(
             self._rounds_fh,
@@ -108,7 +116,8 @@ class SimLogger:
                 "round", "cluster_id", "size",
                 "avg_confidence", "avg_local_loss",
                 "avg_peer_alignment", "avg_obstacle_pressure",
-                "avg_drift_velocity",
+                "avg_drift_velocity", "avg_rounds_stable",
+                "model_divergence", "spatial_spread",
             ],
         )
         self._cluster_sizes_writer.writeheader()
@@ -122,6 +131,8 @@ class SimLogger:
         self._migration_history: List[Tuple[int, int]] = []  # (round, total_migrations)
         # events list for vertical markers
         self._events: List[Dict[str, Any]] = []
+        # cumulative migration matrix: (src, dst) -> total count (in-memory, no CSV re-read)
+        self._mig_matrix: Dict[Tuple[int, int], int] = defaultdict(int)
 
         self._log(f"SimLogger initialised — output dir: {self.run_dir}\n")
 
@@ -178,6 +189,8 @@ class SimLogger:
                 "round": round_num, "src_cluster": src,
                 "dst_cluster": dst, "count": count,
             })
+            if src >= 0:
+                self._mig_matrix[(src, dst)] += count
         self._migrations_fh.flush()
 
         # ── write cluster_sizes.csv ───────────────────────────────────────────
@@ -185,11 +198,22 @@ class SimLogger:
         for p in particles:
             cluster_buckets[p.cluster_id].append(p)
 
+        cluster_rows = {}
         for cid in range(num_clusters):
             members = cluster_buckets.get(cid, [])
             if not members:
                 continue
             ms = np.array([p.model for p in members])
+
+            # model divergence: mean std across key dimensions (dir, confidence, loss)
+            model_div = float(np.mean(np.std(ms[:, [0, 1, 2, 6]], axis=0))) if len(members) > 1 else 0.0
+
+            # spatial spread: mean distance from cluster centroid
+            xs = np.array([p.x for p in members])
+            ys = np.array([p.y for p in members])
+            cx, cy = xs.mean(), ys.mean()
+            spatial_spread = float(np.mean(np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)))
+
             cs_row = {
                 "round":                round_num,
                 "cluster_id":           cid,
@@ -199,9 +223,13 @@ class SimLogger:
                 "avg_peer_alignment":   round(float(np.mean(ms[:, 4])), 4),
                 "avg_obstacle_pressure":round(float(np.mean(ms[:, 3])), 4),
                 "avg_drift_velocity":   round(float(np.mean(ms[:, 7])), 4),
+                "avg_rounds_stable":     round(float(np.mean(ms[:, 5])), 4),
+                "model_divergence":      round(model_div,     4),
+                "spatial_spread":        round(spatial_spread, 1),
             }
             self._cluster_sizes_writer.writerow(cs_row)
             self._cluster_history[cid].append(cs_row)
+            cluster_rows[cid] = cs_row
         self._cluster_sizes_fh.flush()
 
         # ── write events.jsonl ────────────────────────────────────────────────
@@ -211,21 +239,10 @@ class SimLogger:
             self._events_fh.flush()
             self._events.append(ev)
 
-        # ── human-readable log ────────────────────────────────────────────────
-        sizes = {cid: len(m) for cid, m in cluster_buckets.items()}
-        lines = [
-            f"\n[ROUND {round_num}]  clusters={num_clusters}  inertia={inertia:.2f}",
-            f"  avg confidence={avg_conf:.3f}  avg loss={avg_loss:.3f}  "
-            f"peer_align={avg_peer:.3f}  migrations={total_mig}",
-            f"  cluster sizes: {dict(sorted(sizes.items()))}",
-        ]
-        if event:
-            lines.append(f"  *** EVENT: {event.upper()} ***")
-        if transfers:
-            for (src, dst), cnt in sorted(transfers.items(), key=lambda x: -x[1]):
-                src_name = "Unassigned" if src == -1 else f"Cluster {src}"
-                lines.append(f"    {cnt:3d} agents  {src_name} -> Cluster {dst}")
-        self._log("\n".join(lines))
+        self._write_terminal_log(
+            round_num, num_clusters, inertia, avg_conf, avg_loss,
+            avg_peer, total_mig, event, transfers, cluster_rows,
+        )
 
     def log_explosion(self, round_num: int) -> None:
         """Call from trigger_explosion() so the event is timestamped."""
@@ -282,6 +299,8 @@ class SimLogger:
             for spine in ax.spines.values():
                 spine.set_edgecolor("#444466")
 
+        all_cids = sorted(self._cluster_history.keys())
+
         # FIGURE 1 -- Global metrics 2x3 grid
         try:
             fig1, axes = plt.subplots(2, 3, figsize=(16, 9))
@@ -307,6 +326,9 @@ class SimLogger:
             _line(axes[1, 1], "avg_local_loss",     "Avg Local Loss",       "#dd7733", "0-1")
             _line(axes[1, 2], "avg_peer_alignment", "Avg Peer Alignment",   "#9955cc", "0-1")
 
+            from matplotlib.ticker import MaxNLocator
+            axes[0, 1].yaxis.set_major_locator(MaxNLocator(integer=True))
+
             plt.tight_layout()
             p1 = os.path.join(self.run_dir, "global_metrics.png")
             fig1.savefig(p1, dpi=130, bbox_inches="tight", facecolor=fig1.get_facecolor())
@@ -316,8 +338,6 @@ class SimLogger:
         except Exception:
             print("  [FAIL] global_metrics.png")
             traceback.print_exc()
-
-        all_cids = sorted(self._cluster_history.keys())
 
         # FIGURE 2 -- Per-cluster size over time
         try:
@@ -393,23 +413,12 @@ class SimLogger:
 
         # FIGURE 4 -- Migration heatmap
         try:
-            mig_matrix: Dict[Tuple[int, int], int] = defaultdict(int)
-            mig_csv = os.path.join(self.run_dir, "migrations.csv")
-            with open(mig_csv) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    src = int(row["src_cluster"])
-                    dst = int(row["dst_cluster"])
-                    cnt = int(row["count"])
-                    if src >= 0:
-                        mig_matrix[(src, dst)] += cnt
-
-            if mig_matrix:
-                all_ids = sorted({k for pair in mig_matrix for k in pair})
+            if self._mig_matrix:
+                all_ids = sorted({k for pair in self._mig_matrix for k in pair})
                 n = len(all_ids)
                 idx_map = {cid: i for i, cid in enumerate(all_ids)}
                 mat = np.zeros((n, n), dtype=int)
-                for (src, dst), cnt in mig_matrix.items():
+                for (src, dst), cnt in self._mig_matrix.items():
                     mat[idx_map[src], idx_map[dst]] += cnt
 
                 fig4, ax4 = plt.subplots(figsize=(max(5, n + 2), max(4, n + 1)))
@@ -426,11 +435,12 @@ class SimLogger:
                 cbar = fig4.colorbar(im, ax=ax4)
                 cbar.ax.tick_params(colors="white")
                 cbar.set_label("# Particles", color="white")
+                max_val = mat.max()
                 for i in range(n):
                     for j in range(n):
                         if mat[i, j]:
                             ax4.text(j, i, str(mat[i, j]), ha="center", va="center",
-                                     fontsize=9, color="black" if mat[i, j] > mat.max() * 0.5 else "white")
+                                     fontsize=9, color="black" if mat[i, j] > max_val * 0.5 else "white")
                 plt.tight_layout()
                 p4 = os.path.join(self.run_dir, "migration_heatmap.png")
                 fig4.savefig(p4, dpi=130, bbox_inches="tight", facecolor=fig4.get_facecolor())
@@ -443,13 +453,65 @@ class SimLogger:
             print("  [FAIL] migration_heatmap.png")
             traceback.print_exc()
 
+        # FIGURE 5 -- Cohesion & Divergence
+        try:
+            has_div     = any("model_divergence" in h for cid in all_cids for h in self._cluster_history[cid])
+            has_spread  = any("spatial_spread"   in h for cid in all_cids for h in self._cluster_history[cid])
+
+            if has_div or has_spread:
+                fig5, (ax5a, ax5b) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+                fig5.patch.set_facecolor("#1a1a2e")
+                fig5.suptitle("Per-Cluster Cohesion & Model Divergence", color="white",
+                              fontsize=12, fontweight="bold")
+                for ax in (ax5a, ax5b):
+                    _style_ax(ax)
+
+                for cid in all_cids:
+                    hist  = self._cluster_history[cid]
+                    color = PALETTE[cid % len(PALETTE)]
+
+                    if has_div:
+                        rs  = [h["round"]            for h in hist if "model_divergence" in h]
+                        div = [h["model_divergence"]  for h in hist if "model_divergence" in h]
+                        if rs:
+                            ax5a.plot(rs, div, color=color, linewidth=1.6,
+                                      label=f"Cluster {cid}", marker=".", markersize=3)
+
+                    if has_spread:
+                        rs2 = [h["round"]          for h in hist if "spatial_spread" in h]
+                        spr = [h["spatial_spread"] for h in hist if "spatial_spread" in h]
+                        if rs2:
+                            ax5b.plot(rs2, spr, color=color, linewidth=1.6,
+                                      label=f"Cluster {cid}", marker=".", markersize=3)
+
+                _mark_events(ax5a)
+                _mark_events(ax5b)
+                ax5a.set_ylabel("Model Divergence (avg std)", color="white")
+                ax5b.set_ylabel("Spatial Spread (px, mean dist)", color="white")
+                ax5b.set_xlabel("Round", color="white")
+
+                for ax in (ax5a, ax5b):
+                    handles, labels = ax.get_legend_handles_labels()
+                    ax.legend(handles + _event_legend_patches(),
+                              labels  + ["split", "merge", "explosion"],
+                              fontsize=7, facecolor="#1a1a2e", labelcolor="white", loc="upper right")
+
+                plt.tight_layout()
+                p5 = os.path.join(self.run_dir, "cohesion_divergence.png")
+                fig5.savefig(p5, dpi=130, bbox_inches="tight", facecolor=fig5.get_facecolor())
+                plt.close(fig5)
+                saved.append(p5)
+                print("  [ok] cohesion_divergence.png")
+        except Exception:
+            print("  [FAIL] cohesion_divergence.png")
+            traceback.print_exc()
+
         print(f"[SimLogger] Done. {len(saved)} plot(s) saved to: {self.run_dir}")
 
     # ── teardown ──────────────────────────────────────────────────────────────
 
     def close(self) -> None:
         """Flush all file handles, generate plots, then close."""
-        # Flush CSVs first so migrations.csv is complete before plot_all reads it
         for fh in (self._rounds_fh, self._migrations_fh,
                    self._cluster_sizes_fh, self._events_fh, self._log_fh):
             try:
@@ -474,6 +536,52 @@ class SimLogger:
         print(f"[SimLogger] All data saved to: {self.run_dir}")
 
     # ── internal ──────────────────────────────────────────────────────────────
+
+    def _write_terminal_log(
+        self,
+        round_num: int,
+        num_clusters: int,
+        inertia: float,
+        avg_conf: float,
+        avg_loss: float,
+        avg_peer: float,
+        total_mig: int,
+        event: Optional[str],
+        transfers: dict,
+        cluster_rows: Dict[int, Dict],
+    ) -> None:
+        prev = self._history[-2] if len(self._history) >= 2 else None
+
+        conf_arrow  = _delta_arrow(avg_conf, prev["avg_confidence"]) if prev else " "
+        loss_arrow  = _delta_arrow(avg_loss, prev["avg_local_loss"]) if prev else " "
+        peer_arrow  = _delta_arrow(avg_peer, prev["avg_peer_alignment"]) if prev else " "
+
+        lines = [
+            f"\n[ROUND {round_num}]  clusters={num_clusters}  inertia={inertia:.2f}  migrations={total_mig}",
+            f"  global │ conf={avg_conf:.3f}{conf_arrow}  loss={avg_loss:.3f}{loss_arrow}  peer={avg_peer:.3f}{peer_arrow}",
+        ]
+
+        if cluster_rows:
+            lines.append("  ┌─────────┬──────┬────────┬────────┬────────┬────────┬────────┐")
+            lines.append("  │ cluster │ size │  conf  │  loss  │  peer  │ diverg │ spread │")
+            lines.append("  ├─────────┼──────┼────────┼────────┼────────┼────────┼────────┤")
+            for cid, r in sorted(cluster_rows.items()):
+                lines.append(
+                    f"  │ {cid:^7d} │ {r['size']:^4d} │ "
+                    f"{r['avg_confidence']:^6.3f} │ {r['avg_local_loss']:^6.3f} │ "
+                    f"{r['avg_peer_alignment']:^6.3f} │ {r['model_divergence']:^6.3f} │ "
+                    f"{r['spatial_spread']:^6.0f} │"
+                )
+            lines.append("  └─────────┴──────┴────────┴────────┴────────┴────────┴────────┘")
+
+        if event:
+            lines.append(f"  *** EVENT: {event.upper()} ***")
+        if transfers:
+            for (src, dst), cnt in sorted(transfers.items(), key=lambda x: -x[1]):
+                src_name = "Unassigned" if src == -1 else f"Cluster {src}"
+                lines.append(f"    {cnt:3d} agents  {src_name} -> Cluster {dst}")
+
+        self._log("\n".join(lines))
 
     def _log(self, text: str) -> None:
         self._log_fh.write(text + "\n")
