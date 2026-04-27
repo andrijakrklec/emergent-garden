@@ -49,7 +49,7 @@ class Game:
         self.cooldown_counter = 0
         self.cluster_ages = {i: BLEND_MATURITY_ROUNDS for i in range(self.num_clusters)}
         self.target_angles = [random.uniform(0, 2 * math.pi) for _ in range(self.num_clusters)]
-        self.trail_maxlen = ((180 * 3) // SIM_STEPS_PER_FRAME) * 5
+        self.trail_maxlen = ((180 * 3) // SIM_STEPS_PER_FRAME) * 3
         self.target_trails = [deque(maxlen=self.trail_maxlen) for _ in range(self.num_clusters)]
 
         # Colors
@@ -386,15 +386,22 @@ class Game:
                         if p.cluster_id >= 0:
                             p.target_idx = min(p.cluster_id, max_idx)
 
-                    if event == 'split':
+                    event_type = event[0] if isinstance(event, tuple) else event
+
+                    if event_type == 'split':
                         self.target_angles.append(random.uniform(0, 2 * math.pi))
                         self.target_trails.append(deque(maxlen=self.trail_maxlen))
                         self._sync_rules()
                         print(f"   > SPLIT — now {self.num_clusters} clusters")
-                    elif event == 'merge':
-                        if self.target_angles:
+                    elif event_type == 'merge':
+                        drop_idx = event[1]
+                        if drop_idx < len(self.target_angles):
+                            del self.target_angles[drop_idx]
+                        elif self.target_angles:
                             self.target_angles.pop()
-                        if self.target_trails:
+                        if drop_idx < len(self.target_trails):
+                            del self.target_trails[drop_idx]
+                        elif self.target_trails:
                             self.target_trails.pop()
                         self._sync_rules()
                         print(f"   > MERGE — now {self.num_clusters} clusters")
@@ -432,7 +439,7 @@ class Game:
                         kmeans=self.kmeans,
                         cluster_targets=self.cluster_targets,
                         transfers=transfers,
-                        event=event,
+                        event=event_type,
                         num_clusters=self.num_clusters,
                     )
 

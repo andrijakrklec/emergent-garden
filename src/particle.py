@@ -512,7 +512,7 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
             for p in particles:
                 p.target_idx = min(p.target_idx, max_target_idx)
 
-            return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, 'merge', 10
+            return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, ('merge', drop), 10
 
     # SPLIT
     if n < MAX_CLUSTERS:
