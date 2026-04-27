@@ -30,12 +30,12 @@ MIN_CLUSTER_SIZE = 3           # clusters smaller than this get absorbed
 BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
 BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
 
-BEHAVIORAL_FORCE  = 2.0    # goal-directed push from model[0:2], scaled by confidence
+BEHAVIORAL_FORCE  = 3.0    # goal-directed push from model[0:2], scaled by confidence
 STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
 STRAGGLER_DRIFT   = 0.04   # drift_velocity threshold below which a particle is "stuck"
 
-OBSTACLE_SOFT_ZONE     = 50    # px beyond physical edge where pre-contact repulsion starts
-OBSTACLE_SOFT_STRENGTH = 120.0 # base strength of the soft-zone push
+OBSTACLE_SOFT_ZONE     = 20    # px beyond physical edge where pre-contact repulsion starts
+OBSTACLE_SOFT_STRENGTH = 60.0 # base strength of the soft-zone push
 BLEND_LOCAL_MATURE = 0.40   # local weight once matured (your existing value)
 
 class Particle:
@@ -121,7 +121,7 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
             raw_pressure += t  # linear for EMA (represents zone depth, not push force)
 
     # Obstacle weight scales up as particle gets closer — escape dominates target near surface
-    obstacle_weight = 2.5 + raw_pressure * 1.5
+    obstacle_weight = 1.25 + raw_pressure * 0.75
     ideal_x = tx_n + ox_total * obstacle_weight
     ideal_y = ty_n + oy_total * obstacle_weight
     norm = math.hypot(ideal_x, ideal_y)
@@ -225,7 +225,7 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
             # 2. EMERGENCY REPULSION
             # If particles are touching (closer than radius), push them apart HARD
             if d < PARTICLE_FORCE_LOWER_RANGE * 2:
-                F_scalar = 2000.0  # Massive repulsion to unclump them
+                F_scalar = 200.0  # Massive repulsion to unclump them
 
             # 3. NORMAL PHYSICS
             else:

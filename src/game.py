@@ -2,13 +2,15 @@ import pygame
 import numpy as np
 import random
 import math
+from collections import deque
 from sklearn.cluster import KMeans
 
 from src.constants import (
     SCREEN_DIM, SIM_DIM, SIM_WIDTH, SIM_HEIGHT, GUI_WIDTH, GUI_BACKGROUND_COLOR,
     PARTICLE_DEFAULT_SPAWN_NUM, PARTICLE_COLOR_RED, PARTICLE_DEFAULT_SPAWN_FRAME,
     BACK_BLACK, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
-    PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY
+    PARTICLE_COLOR_BLUE, FRAME_RATE, PARTICLE_COLOR_WHITE, WALL_BOUNDARY,
+    SIM_STEPS_PER_FRAME
 )
 from src.particle import Particle, instantiateGroup, local_train, run_cfl_round, apply_physics_rules, update_peer_alignment, MIN_CLUSTERS, MAX_CLUSTERS, BLEND_MATURITY_ROUNDS
 from src.sim_logger import SimLogger
@@ -27,7 +29,7 @@ class Game:
         self.screen = pygame.display.set_mode(size=SCREEN_DIM)
         pygame.display.set_caption("CFL Simulation")
 
-        self.dt = 0.1
+        self.dt = 1.0 / FRAME_RATE
         self.cfl_round_counter = 0
 
         # --- SETUP CLUSTERS & TARGETS ---
@@ -45,6 +47,9 @@ class Game:
 
         self.cooldown_counter = 0
         self.cluster_ages = {i: BLEND_MATURITY_ROUNDS for i in range(self.num_clusters)}
+        self.target_angles = [random.uniform(0, 2 * math.pi) for _ in range(self.num_clusters)]
+        self.trail_maxlen = ((180 * 3) // SIM_STEPS_PER_FRAME) * 5
+        self.target_trails = [deque(maxlen=self.trail_maxlen) for _ in range(self.num_clusters)]
 
         # Colors
         CLUSTER_PALETTE = [
@@ -177,77 +182,111 @@ class Game:
                         print("\n!!! KA-BOOM !!! - Swarm disrupted.")
                         self.trigger_explosion()
 
-            # --- LOCAL TRAINING ---
-            for p in self.all_particles:
-                real_target_pos = self.cluster_targets[p.target_idx]
-                local_train(p, real_target_pos, self.obstacles, learning_rate=0.05)
+            for _sim_step in range(SIM_STEPS_PER_FRAME):
+                # --- DRIFT CLUSTER TARGETS ---
+                _DRIFT_SPEED  = 0.10
+                _DRIFT_MARGIN = WALL_BOUNDARY * 4
+                while len(self.target_angles) < len(self.cluster_targets):
+                    self.target_angles.append(random.uniform(0, 2 * math.pi))
+                while len(self.target_angles) > len(self.cluster_targets):
+                    self.target_angles.pop()
+                for i, (tx, ty) in enumerate(self.cluster_targets):
+                    self.target_angles[i] += random.uniform(-0.01, 0.01)
+                    nx = tx + _DRIFT_SPEED * math.cos(self.target_angles[i])
+                    ny = ty + _DRIFT_SPEED * math.sin(self.target_angles[i])
+                    if nx < _DRIFT_MARGIN or nx > SIM_WIDTH - _DRIFT_MARGIN:
+                        self.target_angles[i] = math.pi - self.target_angles[i]
+                        nx = max(_DRIFT_MARGIN, min(SIM_WIDTH - _DRIFT_MARGIN, nx))
+                    if ny < _DRIFT_MARGIN or ny > SIM_HEIGHT - _DRIFT_MARGIN:
+                        self.target_angles[i] = -self.target_angles[i]
+                        ny = max(_DRIFT_MARGIN, min(SIM_HEIGHT - _DRIFT_MARGIN, ny))
+                    self.cluster_targets[i] = (nx, ny)
 
-            # --- GLOBAL CFL ROUND & LOGGING ---
-            self.cluster_update_timer += 1
-            if self.cluster_update_timer >= self.cluster_update_interval:
-                self.cluster_update_timer = 0
-                self.cfl_round_counter += 1
-
-                transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
-                    self.cluster_ages, self.num_clusters, event, self.cooldown_counter = run_cfl_round(
-                    self.all_particles, self.kmeans, self.cluster_targets,
-                    self.cluster_colors, self.cluster_ages, self.cooldown_counter,
-                )
-
-                max_idx = len(self.cluster_targets) - 1
+                # --- LOCAL TRAINING ---
                 for p in self.all_particles:
-                    p.target_idx = min(p.target_idx, max_idx)
+                    real_target_pos = self.cluster_targets[p.target_idx]
+                    local_train(p, real_target_pos, self.obstacles, learning_rate=0.05)
 
-                if event == 'split':
-                    print(f"   > SPLIT — now {self.num_clusters} clusters")
-                elif event == 'merge':
-                    print(f"   > MERGE — now {self.num_clusters} clusters")
+                # --- GLOBAL CFL ROUND & LOGGING ---
+                self.cluster_update_timer += 1
+                if self.cluster_update_timer >= self.cluster_update_interval:
+                    self.cluster_update_timer = 0
+                    self.cfl_round_counter += 1
 
-                # 2. LOGGING TO TERMINAL
-                inertia = self.kmeans.inertia_ if hasattr(self.kmeans, 'inertia_') else 0.0
-                #iterations = self.kmeans.n_iter_
+                    transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
+                        self.cluster_ages, self.num_clusters, event, self.cooldown_counter = run_cfl_round(
+                        self.all_particles, self.kmeans, self.cluster_targets,
+                        self.cluster_colors, self.cluster_ages, self.cooldown_counter,
+                    )
 
-                # Count sizes for log
-                counts = {}
-                for p in self.all_particles:
-                    counts[p.cluster_id] = counts.get(p.cluster_id, 0) + 1
+                    max_idx = len(self.cluster_targets) - 1
+                    for p in self.all_particles:
+                        p.target_idx = min(p.target_idx, max_idx)
 
-                print(f"\n[ROUND {self.cfl_round_counter}] CFL Complete")
-                print(f"   > Inertia:       {inertia:.2f}")
-                print(f"   > Cluster Sizes: {dict(sorted(counts.items()))}")
+                    if event == 'split':
+                        self.target_angles.append(random.uniform(0, 2 * math.pi))
+                        self.target_trails.append(deque(maxlen=self.trail_maxlen))
+                        print(f"   > SPLIT — now {self.num_clusters} clusters")
+                    elif event == 'merge':
+                        if self.target_angles:
+                            self.target_angles.pop()
+                        if self.target_trails:
+                            self.target_trails.pop()
+                        print(f"   > MERGE — now {self.num_clusters} clusters")
 
-                print(f"   > Migrations (Transfers):")
-                if not transfers:
-                    print("       (Stable - No particles switched clusters)")
-                else:
-                    # Sort by number of particles moving (highest first)
-                    sorted_transfers = sorted(transfers.items(), key=lambda item: item[1], reverse=True)
+                    # 2. LOGGING TO TERMINAL
+                    inertia = self.kmeans.inertia_ if hasattr(self.kmeans, 'inertia_') else 0.0
+                    #iterations = self.kmeans.n_iter_
 
-                    for (old_id, new_id), count in sorted_transfers:
-                        # Handle the very first round where old_id is -1
-                        src_name = "Unassigned" if old_id == -1 else f"Cluster {old_id}"
-                        print(f"       - {count:3d} agents moved: {src_name} -> Cluster {new_id}")
+                    # Count sizes for log
+                    counts = {}
+                    for p in self.all_particles:
+                        counts[p.cluster_id] = counts.get(p.cluster_id, 0) + 1
 
-                print("-" * 50)
+                    print(f"\n[ROUND {self.cfl_round_counter}] CFL Complete")
+                    print(f"   > Inertia:       {inertia:.2f}")
+                    print(f"   > Cluster Sizes: {dict(sorted(counts.items()))}")
 
-                self.logger.log_round(
-                    round_num=self.cfl_round_counter,
-                    particles=self.all_particles,
-                    kmeans=self.kmeans,
-                    cluster_targets=self.cluster_targets,
-                    transfers=transfers,
-                    event=event,
-                    num_clusters=self.num_clusters,
-                )
+                    print(f"   > Migrations (Transfers):")
+                    if not transfers:
+                        print("       (Stable - No particles switched clusters)")
+                    else:
+                        # Sort by number of particles moving (highest first)
+                        sorted_transfers = sorted(transfers.items(), key=lambda item: item[1], reverse=True)
 
-                if self.cfl_round_counter % 10 == 0:
-                   self.logger.plot_all()
+                        for (old_id, new_id), count in sorted_transfers:
+                            # Handle the very first round where old_id is -1
+                            src_name = "Unassigned" if old_id == -1 else f"Cluster {old_id}"
+                            print(f"       - {count:3d} agents moved: {src_name} -> Cluster {new_id}")
 
-            update_peer_alignment(self.all_particles)  # new — computes model[4]
+                    print("-" * 50)
 
-            # --- PHYSICS ---
-            # using attract == repel
-            apply_physics_rules(self.all_particles, self.obstacles, -150.0, 150.0, self.dt)
+                    self.logger.log_round(
+                        round_num=self.cfl_round_counter,
+                        particles=self.all_particles,
+                        kmeans=self.kmeans,
+                        cluster_targets=self.cluster_targets,
+                        transfers=transfers,
+                        event=event,
+                        num_clusters=self.num_clusters,
+                    )
+
+                    if self.cfl_round_counter % 20 == 0:
+                       self.logger.plot_all()
+
+                update_peer_alignment(self.all_particles)  # new — computes model[4]
+
+                # --- PHYSICS ---
+                # using attract == repel
+                apply_physics_rules(self.all_particles, self.obstacles, -3.0, 10.0, self.dt)
+
+            # --- TRAIL SAMPLE (once per render frame) ---
+            while len(self.target_trails) < len(self.cluster_targets):
+                self.target_trails.append(deque(maxlen=self.trail_maxlen))
+            while len(self.target_trails) > len(self.cluster_targets):
+                self.target_trails.pop()
+            for i, (tx, ty) in enumerate(self.cluster_targets):
+                self.target_trails[i].append((int(tx), int(ty)))
 
             # --- DRAWING ---
             self.screen.fill(BACK_BLACK)  # Fills whole screen black
@@ -260,12 +299,19 @@ class Game:
                 pygame.draw.circle(self.screen, (50, 50, 50), (ox, oy), orad)
                 pygame.draw.circle(self.screen, (150, 50, 50), (ox, oy), orad, 2)  # Red border
 
+            # Draw Target Trails (path of last ~5 rounds)
+            for idx, trail in enumerate(self.target_trails):
+                if len(trail) >= 2:
+                    color = self.cluster_colors.get(idx, (255, 255, 255))
+                    pygame.draw.aalines(self.screen, color, False, list(trail))
+
             # Draw Targets (Crosshairs so you can see where they are going)
             for idx, (tx, ty) in enumerate(self.cluster_targets):
                 color = self.cluster_colors.get(idx, (255, 255, 255))
-                pygame.draw.circle(self.screen, color, (tx, ty), 10, 1)
-                pygame.draw.line(self.screen, color, (tx - 15, ty), (tx + 15, ty), 1)
-                pygame.draw.line(self.screen, color, (tx, ty - 15), (tx, ty + 15), 1)
+                itx, ity = int(tx), int(ty)
+                pygame.draw.circle(self.screen, color, (itx, ity), 10, 1)
+                pygame.draw.line(self.screen, color, (itx - 15, ity), (itx + 15, ity), 1)
+                pygame.draw.line(self.screen, color, (itx, ity - 15), (itx, ity + 15), 1)
 
             # Draw Particles
             for particle in self.all_particles:
@@ -278,7 +324,7 @@ class Game:
             self.draw_gui()
 
             pygame.display.flip()
-            self.dt = self.clock.tick(FRAME_RATE) / 1000.0
+            self.dt = min(self.clock.tick(FRAME_RATE) / 1000.0, 1.0 / 30.0)
 
     def trigger_explosion(self):
         """
