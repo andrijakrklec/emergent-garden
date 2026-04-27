@@ -195,9 +195,10 @@ def update_peer_alignment(particles, neighbor_radius=90.0):
         cos_sim = float(np.dot(directions[i], avg_dir))
         p.model[4] = (cos_sim + 1) / 2
 
-def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float):
+def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float, rules: dict = None):
     """
     Revised Physics: Prevents stacking by adding emergency repulsion.
+    rules: optional dict mapping (min(ci,cj), max(ci,cj)) -> float for per-pair forces.
     """
     # Initialize forces
     forces = [np.zeros(2) for _ in particles]
@@ -233,10 +234,15 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
 
                 # Only interact if both have a valid cluster
                 if a.cluster_id != -1 and b.cluster_id != -1:
-                    if a.cluster_id == b.cluster_id:
-                        g = g_attract  # Attraction
+                    ci, cj = a.cluster_id, b.cluster_id
+                    if rules is not None:
+                        key = (min(ci, cj), max(ci, cj))
+                        default = g_attract if ci == cj else g_repel
+                        g = rules.get(key, default)
+                    elif ci == cj:
+                        g = g_attract
                     else:
-                        g = g_repel  # Repulsion
+                        g = g_repel
 
                 # Standard Gravity Formula
                 denom = (d ** PARTICLE_POWER_OF_DISTANCE) * len(particles)

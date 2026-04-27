@@ -18,6 +18,7 @@ from src.sim_logger import SimLogger
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.key.set_repeat(350, 50)
         self.game_running = True
         self.clock = pygame.time.Clock()
 
@@ -98,6 +99,16 @@ class Game:
         self.bomb_color = (200, 50, 50)  # Red
         self.bomb_text = self.font_header.render("DETONATE", True, (255, 255, 255))
 
+        # ATTRACTION RULES (per cluster-pair)
+        self.g_attract = -3.0
+        self.g_repel = 10.0
+        self.rules = {}           # (min(ci,cj), max(ci,cj)) -> float
+        self.rule_cell_rects = {} # (i, j) -> pygame.Rect  (one per visual cell)
+        self.editing_cell = None  # canonical (min,max) key being edited
+        self.edit_buffer = ""     # text typed so far
+        self.last_click_cell = None
+        self.last_click_time = 0
+
         # Initial Round
         print(f"\n{'=' * 60}")
         print(f"INIT: Starting Simulation with {len(self.all_particles)} particles.")
@@ -108,11 +119,42 @@ class Game:
             self.cluster_colors, self.cluster_ages, self.cooldown_counter,
         )
 
+        self._sync_rules()
+
         self.logger = SimLogger(log_dir="logs")
 
         max_idx = len(self.cluster_targets) - 1
         for p in self.all_particles:
-            p.target_idx = min(p.target_idx, max_idx)
+            if p.cluster_id >= 0:
+                p.target_idx = min(p.cluster_id, max_idx)
+
+    def _sync_rules(self):
+        """Add entries for new clusters; remove entries for merged-away clusters."""
+        current_keys = set()
+        for i in range(self.num_clusters):
+            for j in range(i, self.num_clusters):
+                key = (i, j)
+                current_keys.add(key)
+                if key not in self.rules:
+                    self.rules[key] = self.g_attract if i == j else self.g_repel
+        for k in [k for k in self.rules if k not in current_keys]:
+            del self.rules[k]
+
+    def _get_rule(self, i, j):
+        key = (min(i, j), max(i, j))
+        return self.rules.get(key, self.g_attract if i == j else self.g_repel)
+
+    def _set_rule(self, i, j, val):
+        self.rules[(min(i, j), max(i, j))] = max(-20.0, min(20.0, val))
+
+    def _commit_edit(self):
+        if self.editing_cell is not None:
+            try:
+                self._set_rule(*self.editing_cell, float(self.edit_buffer))
+            except (ValueError, TypeError):
+                pass
+            self.editing_cell = None
+            self.edit_buffer = ""
 
     def draw_gui(self):
         """Draws the GUI in the sidebar area (Right side)"""
@@ -161,7 +203,83 @@ class Game:
         y += 20
         pygame.draw.line(self.screen, (80, 80, 80), (start_x, y), (SIM_WIDTH + GUI_WIDTH - 20, y), 1)
         y += 10
-        self.screen.blit(self.font_small.render("Check terminal for details...", True, (150, 150, 150)), (start_x, y))
+
+        # --- RULES MATRIX ---
+        self.screen.blit(self.font_small.render("ATTRACTION RULES", True, (200, 200, 200)), (start_x, y))
+        y += 14
+        for line in (
+            "Force between cluster pairs",
+            "negative = attract, positive = repel",
+            "diagonal = intra cluster",
+            "click = edit  |  dbl-click = reset",
+        ):
+            dim = (110, 110, 110) if "click" in line else (140, 140, 140)
+            self.screen.blit(self.font_small.render(line, True, dim), (start_x, y))
+            y += 13
+        y += 4
+
+        N = self.num_clusters
+        header_col_w = 18
+        available_w = GUI_WIDTH - 40 - header_col_w
+        cell_w = min(45, available_w // max(1, N))
+        cell_h = 22
+
+        mx = start_x
+        new_rects = {}
+
+        # Column headers (colored squares)
+        for j in range(N):
+            col_color = self.cluster_colors.get(j, (200, 200, 200))
+            cx = mx + header_col_w + j * cell_w + cell_w // 2 - 6
+            pygame.draw.rect(self.screen, col_color, (cx, y + 2, 12, 12))
+        y += 18
+
+        # Rows
+        for i in range(N):
+            row_color = self.cluster_colors.get(i, (200, 200, 200))
+            pygame.draw.rect(self.screen, row_color, (mx, y + 5, 12, 12))
+
+            for j in range(N):
+                val = self._get_rule(i, j)
+                canonical = (min(i, j), max(i, j))
+                is_editing = self.editing_cell == canonical
+
+                cx = mx + header_col_w + j * cell_w
+                cell_rect = pygame.Rect(cx + 1, y + 1, cell_w - 2, cell_h - 2)
+                new_rects[(i, j)] = cell_rect
+
+                # Color: blue = attract (negative), red = repel (positive)
+                t = max(-1.0, min(1.0, val / 20.0))
+                if t < 0:
+                    r, g_c, b = int(30 + (1 + t) * 30), int(30 + (1 + t) * 30), int(30 + (-t) * 200)
+                else:
+                    r, g_c, b = int(30 + t * 200), int(30 + (1 - t) * 30), int(30 + (1 - t) * 30)
+
+                if is_editing:
+                    cell_bg = (50, 50, 50)
+                    border_col = (220, 220, 100)
+                else:
+                    cell_bg = (r, g_c, b)
+                    border_col = (80, 80, 80)
+
+                pygame.draw.rect(self.screen, cell_bg, cell_rect)
+                pygame.draw.rect(self.screen, border_col, cell_rect, 1)
+
+                if is_editing:
+                    display_str = self.edit_buffer + "|"
+                else:
+                    display_str = f"{val:.0f}"
+
+                val_surf = self.font_small.render(display_str, True, (230, 230, 230))
+                vr = val_surf.get_rect(center=cell_rect.center)
+                self.screen.blit(val_surf, vr)
+
+            y += cell_h
+
+        self.rule_cell_rects = new_rects
+        y += 8
+
+        self.screen.blit(self.font_small.render("Check terminal for details...", True, (100, 100, 100)), (start_x, y))
 
         # DRAW BOMB BUTTON
         pygame.draw.rect(self.screen, self.bomb_color, self.bomb_rect, border_radius=8)
@@ -176,11 +294,53 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: self.game_running = False
 
-                # CHECK MOUSE CLICK
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.bomb_rect.collidepoint(event.pos):
+                        self._commit_edit()
                         print("\n!!! KA-BOOM !!! - Swarm disrupted.")
                         self.trigger_explosion()
+                    else:
+                        now = pygame.time.get_ticks()
+                        hit = None
+                        for (i, j), rect in self.rule_cell_rects.items():
+                            if rect.collidepoint(event.pos):
+                                hit = (min(i, j), max(i, j))
+                                break
+
+                        if hit is not None:
+                            if (self.last_click_cell == hit and
+                                    now - self.last_click_time < 400):
+                                # Double-click: reset to default
+                                i, j = hit
+                                self._set_rule(i, j, self.g_attract if i == j else self.g_repel)
+                                self.editing_cell = None
+                                self.edit_buffer = ""
+                                self.last_click_cell = None
+                            else:
+                                # Single-click: commit any open edit, start new one
+                                self._commit_edit()
+                                self.editing_cell = hit
+                                self.edit_buffer = f"{self._get_rule(*hit):.0f}"
+                                self.last_click_cell = hit
+                                self.last_click_time = now
+                        else:
+                            self._commit_edit()
+                            self.last_click_cell = None
+
+                if event.type == pygame.KEYDOWN and self.editing_cell is not None:
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self._commit_edit()
+                    elif event.key == pygame.K_ESCAPE:
+                        self.editing_cell = None
+                        self.edit_buffer = ""
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.edit_buffer = self.edit_buffer[:-1]
+                    elif event.unicode in "0123456789":
+                        self.edit_buffer += event.unicode
+                    elif event.unicode == "-" and self.edit_buffer == "":
+                        self.edit_buffer = "-"
+                    elif event.unicode == "." and "." not in self.edit_buffer:
+                        self.edit_buffer += "."
 
             for _sim_step in range(SIM_STEPS_PER_FRAME):
                 # --- DRIFT CLUSTER TARGETS ---
@@ -219,19 +379,24 @@ class Game:
                         self.cluster_colors, self.cluster_ages, self.cooldown_counter,
                     )
 
+                    # Sync pursuit target immediately after reassignment so particles
+                    # chase their new crosshair rather than the old one.
                     max_idx = len(self.cluster_targets) - 1
                     for p in self.all_particles:
-                        p.target_idx = min(p.target_idx, max_idx)
+                        if p.cluster_id >= 0:
+                            p.target_idx = min(p.cluster_id, max_idx)
 
                     if event == 'split':
                         self.target_angles.append(random.uniform(0, 2 * math.pi))
                         self.target_trails.append(deque(maxlen=self.trail_maxlen))
+                        self._sync_rules()
                         print(f"   > SPLIT — now {self.num_clusters} clusters")
                     elif event == 'merge':
                         if self.target_angles:
                             self.target_angles.pop()
                         if self.target_trails:
                             self.target_trails.pop()
+                        self._sync_rules()
                         print(f"   > MERGE — now {self.num_clusters} clusters")
 
                     # 2. LOGGING TO TERMINAL
@@ -277,8 +442,7 @@ class Game:
                 update_peer_alignment(self.all_particles)  # new — computes model[4]
 
                 # --- PHYSICS ---
-                # using attract == repel
-                apply_physics_rules(self.all_particles, self.obstacles, -3.0, 10.0, self.dt)
+                apply_physics_rules(self.all_particles, self.obstacles, self.g_attract, self.g_repel, self.dt, self.rules)
 
             # --- TRAIL SAMPLE (once per render frame) ---
             while len(self.target_trails) < len(self.cluster_targets):
