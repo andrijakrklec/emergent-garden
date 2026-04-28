@@ -18,7 +18,9 @@ from src.constants import (
     PARTICLE_DEFAULT_RADIUS, SCREEN_DIM, WALL_HEAT, WALL_BOUNDARY,
     PARTICLE_FORCE_LOWER_RANGE, PARTICLE_FORCE_UPPER_RANGE,
     PARTICLE_POWER_OF_DISTANCE, PARTICLE_DEFAULT_UPDATE_TIME, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED,
-    SIM_HEIGHT, SIM_WIDTH
+    SIM_HEIGHT, SIM_WIDTH,
+    PARTICLE_COLOR_RED, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
+    PARTICLE_COLOR_BLUE, PARTICLE_COLOR_WHITE,
 )
 
 MIN_CLUSTERS = 2
@@ -30,7 +32,7 @@ MIN_CLUSTER_SIZE = 3           # clusters smaller than this get absorbed
 BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
 BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
 
-BEHAVIORAL_FORCE  = 3.0    # goal-directed push from model[0:2], scaled by confidence
+BEHAVIORAL_FORCE  = 8.0    # goal-directed push from model[0:2], scaled by confidence
 STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
 STRAGGLER_DRIFT   = 0.04   # drift_velocity threshold below which a particle is "stuck"
 
@@ -399,6 +401,24 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
             transfers[(old_id, new_id)] += 1
         p.cluster_id = new_id
 
+    # --- Compact out any empty clusters produced by KMeans ---
+    # KMeans with n_init=1 (warm start) can leave clusters with 0 members when
+    # two centroids are very close. Remove gaps so IDs stay contiguous.
+    occupied = sorted(set(p.cluster_id for p in particles))
+    if len(occupied) < n:
+        remap = {old: new for new, old in enumerate(occupied)}
+        cluster_targets = [cluster_targets[i] for i in occupied]
+        new_colors = {remap[i]: cluster_colors[i] for i in occupied if i in cluster_colors}
+        new_colors[-1] = cluster_colors.get(-1, (80, 80, 80))
+        cluster_colors = new_colors
+        cluster_ages = {remap[i]: cluster_ages.get(i, 0) for i in occupied}
+        n = len(occupied)
+        kmeans_model = KMeans(n_clusters=n, n_init=10, random_state=0)
+        for p in particles:
+            p.cluster_id = remap[p.cluster_id]
+            p._prev_cluster_id = remap.get(p._prev_cluster_id, -1)
+            p.target_idx = min(p.cluster_id, len(cluster_targets) - 1)
+
     # --- Weighted aggregation with adaptive blend ratio ---
     for cid in range(n):
         members = [p for p in particles if p.cluster_id == cid]
@@ -523,14 +543,16 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
         )
         if worst_cid is not None and stats[worst_cid]['avg_loss'] > SPLIT_LOSS_THRESHOLD:
             members = [p for p in particles if p.cluster_id == worst_cid]
-            # Split on spatial x-position: more stable than model heading
-            median_x = np.median([p.x for p in members])
+            # Sort by x and take the lower half — guarantees both sides get exactly
+            # half the members regardless of duplicate x-values (strict median < can
+            # leave one side empty when all particles share the same x coordinate).
+            members_sorted = sorted(members, key=lambda p: p.x)
+            split_count = max(MIN_CLUSTER_SIZE, len(members_sorted) // 2)
             new_cid = n
-            for p in members:
-                if p.x < median_x:
-                    p.cluster_id = new_cid
-                    p._prev_cluster_id = -1  # force stability reset
-                    p._stable_rounds = 0
+            for p in members_sorted[:split_count]:
+                p.cluster_id = new_cid
+                p._prev_cluster_id = -1  # force stability reset
+                p._stable_rounds = 0
 
             ox, oy = cluster_targets[worst_cid]
             new_targets = cluster_targets + [(
@@ -587,12 +609,12 @@ def instantiateGroup(
     return group
 
 CLUSTER_PALETTE = [
-    (220, 80,  80),
-    (80,  160, 220),
-    (80,  200, 120),
-    (220, 180, 60),
-    (180, 80,  220),
-    (60,  210, 210),
+    PARTICLE_COLOR_RED,
+    PARTICLE_COLOR_YELLOW,
+    PARTICLE_COLOR_GREEN,
+    PARTICLE_COLOR_BLUE,
+    PARTICLE_COLOR_WHITE,
+    (0, 255, 255),   # cyan — 6th slot for MAX_CLUSTERS=6
 ]
 
 def _pick_unused_color(used_colors):
