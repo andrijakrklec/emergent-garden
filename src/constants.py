@@ -1,5 +1,5 @@
 
-PARTICLE_DEFAULT_SPAWN_NUM = 50
+PARTICLE_DEFAULT_SPAWN_NUM = 25
 
 # --- SIMULATION AREA ---
 SIM_WIDTH = 1000
@@ -7,12 +7,12 @@ SIM_HEIGHT = 800
 SIM_DIM = (SIM_WIDTH, SIM_HEIGHT)
 
 # --- GUI SETTINGS ---
-GUI_WIDTH = 300
+GUI_WIDTH = 380
 GUI_BACKGROUND_COLOR = (30, 30, 30)
 
 # ADVANCED CONTROLS
 FRAME_RATE = 60
-SIM_STEPS_PER_FRAME = 10  # number of physics ticks per render frame (raises sim speed without changing fps)
+SIM_STEPS_PER_FRAME = 20  # number of physics ticks per render frame (raises sim speed without changing fps)
 PARTICLE_LOSE_ENERGY = 0.98
 
 PARTICLE_FORCE_LOWER_RANGE = 1
@@ -24,7 +24,7 @@ WALL_BOUNDARY = 25
 PARTICLE_DEFAULT_UPDATE_TIME = 1
 PARTICLE_POWER_OF_DISTANCE = 1
 
-PARTICLE_MAX_SPEED = 300.0
+PARTICLE_MAX_SPEED = 60.0
 
 # ALMOST NEVER CHANGES:
 SCREEN_DIM = (SIM_WIDTH + GUI_WIDTH, SIM_HEIGHT)
@@ -44,11 +44,11 @@ margin_x, margin_y = (0.25, 0.25)
 center_x, center_y = (0.5, 0.5)
 PARTICLE_DEFAULT_SPAWN_FRAME = (
     (
-        int((center_x - margin_x) * (SCREEN_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
-        int((center_x + margin_x) * (SCREEN_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
+        int((center_x - margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
+        int((center_x + margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
     ),
     (
-        int((center_y - margin_y) * (SCREEN_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
-        int((center_y + margin_y) * (SCREEN_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
+        int((center_y - margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
+        int((center_y + margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
     )
 )

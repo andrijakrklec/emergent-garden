@@ -26,8 +26,8 @@ from src.particle import (
 from src.sim_logger import SimLogger
 
 
-# Physics tick rate — same as old SIM_STEPS_PER_FRAME * FRAME_RATE
-PHYSICS_HZ = 250
+# Physics tick rate
+PHYSICS_HZ = 60
 # Append a trail point every N physics steps (keeps trail density frame-rate-independent)
 TRAIL_SAMPLE_EVERY = PHYSICS_HZ // FRAME_RATE  # = 10
 
@@ -36,10 +36,9 @@ CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.j
 def _load_force_config() -> Tuple[float, float, Dict]:
     """Load g_attract, g_repel, and optional pair_rules from config.json.
 
-    Config values are in "original simulation scale" (roughly -1 to +1).
-    force_scale multiplies all of them before use so the physics match the
-    original emergent-garden simulation's feel.  Defaults give the same
-    internal values as the hardcoded fallback (-10, 25).
+    Config values are in -1 to +1 scale.
+    force_scale multiplies all of them before use
+    Defaults give the same internal values as the hardcoded fallback (-10, 25).
     Falls back to hardcoded defaults if the file is missing or malformed.
     """
     FALLBACK_SCALE    = 25.0
@@ -67,7 +66,7 @@ def _load_force_config() -> Tuple[float, float, Dict]:
         try:
             i, j = (int(x) for x in key.split("-"))
             internal_val = float(val) * scale
-            rules[(min(i, j), max(i, j))] = max(-50.0, min(50.0, internal_val))
+            rules[(min(i, j), max(i, j))] = internal_val #max(-50.0, min(50.0, internal_val))
         except (ValueError, TypeError):
             print(f"[config] Skipping invalid pair_rules entry: {key!r}: {val!r}")
 
@@ -101,6 +100,12 @@ class SimSnapshot:
     g_attract: float
     g_repel: float
     rules: dict              # {(i,j): float}
+    cfl_enabled: bool
+    attraction_enabled: bool
+    avg_loss: float
+    avg_confidence: float
+    loss_history: list       # per-round avg_loss values (last N rounds)
+    conf_history: list       # per-round avg_confidence values (last N rounds)
 
 
 class SimulationThread(threading.Thread):
@@ -118,7 +123,58 @@ class SimulationThread(threading.Thread):
     # Initialisation
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _init_obstacles(spec):
+        """Resolve the `obstacles` config field into a list of (x, y, r) tuples.
+
+        Accepted forms:
+          - None / missing                    → 4 random obstacles (legacy default)
+          - int N                             → N random obstacles
+          - list of [x, y, r]                 → use exactly these
+          - list of {"x":..,"y":..,"r":..}    → use exactly these
+        Out-of-bounds or malformed entries are skipped with a warning.
+        """
+        def _random_set(n):
+            return [
+                (random.randint(150, SIM_WIDTH - 150),
+                 random.randint(150, SIM_HEIGHT - 150),
+                 random.randint(30, 70))
+                for _ in range(n)
+            ]
+
+        if spec is None:
+            print("[config] obstacles: random (4)")
+            return _random_set(4)
+
+        if isinstance(spec, int):
+            n = max(0, spec)
+            print(f"[config] obstacles: random ({n})")
+            return _random_set(n)
+
+        if not isinstance(spec, list):
+            print(f"[config] obstacles: invalid type {type(spec).__name__} — using random (4)")
+            return _random_set(4)
+
+        out = []
+        for idx, item in enumerate(spec):
+            try:
+                if isinstance(item, dict):
+                    x, y, r = int(item["x"]), int(item["y"]), int(item["r"])
+                elif isinstance(item, (list, tuple)) and len(item) == 3:
+                    x, y, r = int(item[0]), int(item[1]), int(item[2])
+                else:
+                    raise ValueError("expected [x,y,r] or {x,y,r}")
+                if r <= 0:
+                    raise ValueError("r must be positive")
+                out.append((x, y, r))
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"[config] obstacles[{idx}] skipped: {item!r} ({e})")
+
+        print(f"[config] obstacles: explicit ({len(out)} from config.json)")
+        return out
+
     def _init_sim(self):
+        _cfg = {}
         try:
             with open(CONFIG_PATH) as f:
                 _cfg = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
@@ -160,16 +216,15 @@ class SimulationThread(threading.Thread):
             ))
 
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
-        self.cluster_update_interval = 100  # physics steps between CFL rounds
+        self.cluster_update_interval = 200  # physics steps between CFL rounds
         self.cluster_update_timer = 0
         self.cfl_round_counter = 0
+        self.cfl_enabled = True
+        self.attraction_enabled = True
+        self._avg_loss_history: deque = deque(maxlen=60)
+        self._avg_conf_history: deque = deque(maxlen=60)
 
-        self.obstacles = []
-        for _ in range(4):
-            ox = random.randint(150, SIM_WIDTH - 150)
-            oy = random.randint(150, SIM_HEIGHT - 150)
-            orad = random.randint(30, 70)
-            self.obstacles.append((ox, oy, orad))
+        self.obstacles = self._init_obstacles(_cfg.get("obstacles"))
 
         self.g_attract, self.g_repel, self.rules = _load_force_config()
 
@@ -224,6 +279,12 @@ class SimulationThread(threading.Thread):
             self.set_rule(cmd['i'], cmd['j'], cmd['val'])
         elif t == 'reset_rule':
             self.reset_rule(cmd['i'], cmd['j'])
+        elif t == 'toggle_cfl':
+            self.cfl_enabled = not self.cfl_enabled
+            print(f"\n[CFL] Federation rounds {'ENABLED' if self.cfl_enabled else 'DISABLED'}")
+        elif t == 'toggle_attraction':
+            self.attraction_enabled = not self.attraction_enabled
+            print(f"\n[ATTRACTION] Inter-particle forces {'ENABLED' if self.attraction_enabled else 'DISABLED'}")
 
     def _trigger_explosion(self):
         for p in self.all_particles:
@@ -244,7 +305,7 @@ class SimulationThread(threading.Thread):
     # ------------------------------------------------------------------
 
     def _step(self, dt: float):
-        _DRIFT_SPEED  = 0.35
+        _DRIFT_SPEED  = 0.10
         _DRIFT_MARGIN = WALL_BOUNDARY * 4
 
         # Sync angle list length with targets
@@ -268,78 +329,91 @@ class SimulationThread(threading.Thread):
 
         # Local training
         for p in self.all_particles:
-            local_train(p, self.cluster_targets[p.target_idx], self.obstacles, learning_rate=0.05)
+            local_train(p, self.cluster_targets[p.target_idx], self.obstacles, learning_rate=0.02)
 
-        # CFL round — fires every cluster_update_interval physics steps,
-        # back-to-back as fast as computation allows (mirrors the notebook's for-loop).
+        # CFL round — fires every cluster_update_interval physics steps.
         self.cluster_update_timer += 1
         if self.cluster_update_timer >= self.cluster_update_interval:
             self.cluster_update_timer = 0
             self.cfl_round_counter += 1
 
-            transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
-                self.cluster_ages, self.num_clusters, event, self.cooldown_counter = run_cfl_round(
-                self.all_particles, self.kmeans, self.cluster_targets,
-                self.cluster_colors, self.cluster_ages, self.cooldown_counter,
-            )
+            # Track metrics every round regardless of whether CFL is enabled,
+            # so the sparkline shows the contrast when the mode is toggled.
+            if self.all_particles:
+                _al = sum(p.model[6] for p in self.all_particles) / len(self.all_particles)
+                _ac = sum(p.model[2] for p in self.all_particles) / len(self.all_particles)
+                self._avg_loss_history.append(_al)
+                self._avg_conf_history.append(_ac)
 
-            max_idx = len(self.cluster_targets) - 1
-            for p in self.all_particles:
-                if p.cluster_id >= 0:
-                    p.target_idx = min(p.cluster_id, max_idx)
+            if self.cfl_enabled:
+                transfers, self.kmeans, self.cluster_targets, self.cluster_colors, \
+                    self.cluster_ages, self.num_clusters, event, self.cooldown_counter = run_cfl_round(
+                    self.all_particles, self.kmeans, self.cluster_targets,
+                    self.cluster_colors, self.cluster_ages, self.cooldown_counter,
+                )
 
-            event_type = event[0] if isinstance(event, tuple) else event
-            trail_maxlen = self.target_trails[0].maxlen if self.target_trails else FRAME_RATE * 3
+                max_idx = len(self.cluster_targets) - 1
+                for p in self.all_particles:
+                    if p.cluster_id >= 0:
+                        p.target_idx = min(p.cluster_id, max_idx)
 
-            if event_type == 'split':
-                self.target_angles.append(random.uniform(0, 2 * math.pi))
-                self.target_trails.append(deque(maxlen=trail_maxlen))
-                self._sync_rules()
-                print(f"   > SPLIT — now {self.num_clusters} clusters")
-            elif event_type == 'merge':
-                drop_idx = event[1]
-                if drop_idx < len(self.target_angles):
-                    del self.target_angles[drop_idx]
-                elif self.target_angles:
-                    self.target_angles.pop()
-                if drop_idx < len(self.target_trails):
-                    del self.target_trails[drop_idx]
-                elif self.target_trails:
-                    self.target_trails.pop()
-                self._sync_rules()
-                print(f"   > MERGE — now {self.num_clusters} clusters")
+                event_type = event[0] if isinstance(event, tuple) else event
+                trail_maxlen = self.target_trails[0].maxlen if self.target_trails else FRAME_RATE * 3
 
-            inertia = self.kmeans.inertia_ if hasattr(self.kmeans, 'inertia_') else 0.0
-            counts = {}
-            for p in self.all_particles:
-                counts[p.cluster_id] = counts.get(p.cluster_id, 0) + 1
+                if event_type == 'split':
+                    self.target_angles.append(random.uniform(0, 2 * math.pi))
+                    self.target_trails.append(deque(maxlen=trail_maxlen))
+                    self._sync_rules()
+                    print(f"   > SPLIT — now {self.num_clusters} clusters")
+                elif event_type == 'merge':
+                    drop_idx = event[1]
+                    if drop_idx < len(self.target_angles):
+                        del self.target_angles[drop_idx]
+                    elif self.target_angles:
+                        self.target_angles.pop()
+                    if drop_idx < len(self.target_trails):
+                        del self.target_trails[drop_idx]
+                    elif self.target_trails:
+                        self.target_trails.pop()
+                    self._sync_rules()
+                    print(f"   > MERGE — now {self.num_clusters} clusters")
 
-            print(f"\n[ROUND {self.cfl_round_counter}] CFL Complete")
-            print(f"   > Inertia:       {inertia:.2f}")
-            print(f"   > Cluster Sizes: {dict(sorted(counts.items()))}")
-            if transfers:
-                print(f"   > Migrations:")
-                for (old_id, new_id), cnt in sorted(transfers.items(), key=lambda x: -x[1]):
-                    src = "Unassigned" if old_id == -1 else f"Cluster {old_id}"
-                    print(f"       - {cnt:3d} agents: {src} -> Cluster {new_id}")
+                inertia = self.kmeans.inertia_ if hasattr(self.kmeans, 'inertia_') else 0.0
+                counts = {}
+                for p in self.all_particles:
+                    counts[p.cluster_id] = counts.get(p.cluster_id, 0) + 1
+
+                print(f"\n[ROUND {self.cfl_round_counter}] CFL Complete")
+                print(f"   > Inertia:       {inertia:.2f}")
+                print(f"   > Cluster Sizes: {dict(sorted(counts.items()))}")
+                if transfers:
+                    print(f"   > Migrations:")
+                    for (old_id, new_id), cnt in sorted(transfers.items(), key=lambda x: -x[1]):
+                        src = "Unassigned" if old_id == -1 else f"Cluster {old_id}"
+                        print(f"       - {cnt:3d} agents: {src} -> Cluster {new_id}")
+                else:
+                    print("   > Migrations: (Stable)")
+                print("-" * 50)
+
+                self.logger.log_round(
+                    round_num=self.cfl_round_counter,
+                    particles=self.all_particles,
+                    kmeans=self.kmeans,
+                    cluster_targets=self.cluster_targets,
+                    transfers=transfers,
+                    event=event_type,
+                    num_clusters=self.num_clusters,
+                )
+                if self.cfl_round_counter % 20 == 0:
+                    self.logger.plot_all()
             else:
-                print("   > Migrations: (Stable)")
-            print("-" * 50)
-
-            self.logger.log_round(
-                round_num=self.cfl_round_counter,
-                particles=self.all_particles,
-                kmeans=self.kmeans,
-                cluster_targets=self.cluster_targets,
-                transfers=transfers,
-                event=event_type,
-                num_clusters=self.num_clusters,
-            )
-            if self.cfl_round_counter % 20 == 0:
-                self.logger.plot_all()
+                print(f"\n[ROUND {self.cfl_round_counter}] (CFL disabled — individual learning only)")
 
         update_peer_alignment(self.all_particles)
-        apply_physics_rules(self.all_particles, self.obstacles, self.g_attract, self.g_repel, dt, self.rules)
+        apply_physics_rules(
+            self.all_particles, self.obstacles, self.g_attract, self.g_repel,
+            dt, self.rules, attraction_enabled=self.attraction_enabled,
+        )
 
         # Trail sampling at reduced rate
         self._trail_counter += 1
@@ -366,6 +440,12 @@ class SimulationThread(threading.Thread):
         for p in self.all_particles:
             stats[p.cluster_id] = stats.get(p.cluster_id, 0) + 1
 
+        if self.all_particles:
+            avg_loss = sum(p.model[6] for p in self.all_particles) / len(self.all_particles)
+            avg_conf = sum(p.model[2] for p in self.all_particles) / len(self.all_particles)
+        else:
+            avg_loss = avg_conf = 0.0
+
         return SimSnapshot(
             particles=particle_data,
             cluster_targets=list(self.cluster_targets),
@@ -378,6 +458,12 @@ class SimulationThread(threading.Thread):
             g_attract=self.g_attract,
             g_repel=self.g_repel,
             rules=dict(self.rules),
+            cfl_enabled=self.cfl_enabled,
+            attraction_enabled=self.attraction_enabled,
+            avg_loss=avg_loss,
+            avg_confidence=avg_conf,
+            loss_history=list(self._avg_loss_history),
+            conf_history=list(self._avg_conf_history),
         )
 
     def get_snapshot(self) -> Optional[SimSnapshot]:
@@ -439,11 +525,12 @@ class Game:
         pygame.display.set_caption("CFL Simulation")
 
         # Bomb button
-        btn_x = SIM_WIDTH + 20
-        btn_y = SIM_HEIGHT - 80
-        self.bomb_rect  = pygame.Rect(btn_x, btn_y, GUI_WIDTH - 40, 50)
+        btn_w = 110
+        btn_x = SIM_WIDTH + (GUI_WIDTH - btn_w) // 2
+        btn_y = SIM_HEIGHT - 50
+        self.bomb_rect  = pygame.Rect(btn_x, btn_y, btn_w, 30)
         self.bomb_color = (200, 50, 50)
-        self.bomb_text  = self.font_header.render("DETONATE", True, (255, 255, 255))
+        self.bomb_text  = self.font.render("DETONATE", True, (255, 255, 255))
 
         # Matrix editing state (GUI-thread only)
         self.rule_cell_rects: Dict[Tuple, pygame.Rect] = {}
@@ -451,6 +538,10 @@ class Game:
         self.edit_buffer    = ""
         self.last_click_cell = None
         self.last_click_time = 0
+
+        # Toggle button rects — updated each draw call
+        self.cfl_toggle_rect        = pygame.Rect(0, 0, 1, 1)
+        self.attraction_toggle_rect = pygame.Rect(0, 0, 1, 1)
 
         # Start simulation thread
         self.cmd_queue = queue.Queue()
@@ -490,97 +581,167 @@ class Game:
         pygame.draw.rect(self.screen, GUI_BACKGROUND_COLOR, sidebar_rect)
         pygame.draw.line(self.screen, (100, 100, 100), (SIM_WIDTH, 0), (SIM_WIDTH, SIM_HEIGHT), 2)
 
-        start_x = SIM_WIDTH + 20
-        y = 20
-        line_h = 30
+        start_x = SIM_WIDTH + 24
+        y = 24
+        line_h = 34
 
         self.screen.blit(self.font_header.render("CFL Dashboard", True, (255, 255, 255)), (start_x, y))
-        y += 40
+        y += 46
 
-        total = sum(snap.cluster_stats.values())
         self.screen.blit(self.font.render(f"Round: {snap.cfl_round_counter}", True, (200, 200, 200)), (start_x, y))
-        y += line_h
-        self.screen.blit(self.font.render(f"Particles: {total}", True, (200, 200, 200)), (start_x, y))
-        y += int(line_h * 1.5)
+        y += int(line_h * 1.4)
 
-        self.screen.blit(self.font.render("Active Clusters:", True, (255, 255, 255)), (start_x, y))
-        y += line_h
+        self.screen.blit(self.font.render("Clusters:", True, (255, 255, 255)), (start_x, y))
+        y += 22
+        cluster_row_h = 18
         for i in range(snap.num_clusters):
             color = snap.cluster_colors.get(i, (255, 255, 255))
-            pygame.draw.rect(self.screen, color, (start_x, y + 5, 15, 15))
+            pygame.draw.rect(self.screen, color, (start_x, y + 2, 12, 12))
             count = snap.cluster_stats.get(i, 0)
             self.screen.blit(
-                self.font.render(f"Cluster {i}: {count} agents", True, (180, 180, 180)),
-                (start_x + 25, y),
+                self.font_small.render(f"Cluster {i}: {count} agents", True, (180, 180, 180)),
+                (start_x + 20, y + 1),
             )
-            y += line_h
+            y += cluster_row_h
 
-        y += 20
+        y += 12
         pygame.draw.line(self.screen, (80, 80, 80), (start_x, y), (SIM_WIDTH + GUI_WIDTH - 20, y), 1)
-        y += 10
-
-        # --- Rules matrix ---
-        self.screen.blit(self.font_small.render("ATTRACTION RULES", True, (200, 200, 200)), (start_x, y))
-        y += 14
-        for line in (
-            "Force between cluster pairs",
-            "negative = attract, positive = repel",
-            "diagonal = intra cluster",
-            "click = edit  |  dbl-click = reset",
-        ):
-            color = (110, 110, 110) if "click" in line else (140, 140, 140)
-            self.screen.blit(self.font_small.render(line, True, color), (start_x, y))
-            y += 13
-        y += 4
-
-        N = snap.num_clusters
-        header_col_w = 18
-        cell_w = min(45, (GUI_WIDTH - 40 - header_col_w) // max(1, N))
-        cell_h = 22
-        mx = start_x
-        new_rects = {}
-
-        for j in range(N):
-            col_color = snap.cluster_colors.get(j, (200, 200, 200))
-            cx = mx + header_col_w + j * cell_w + cell_w // 2 - 6
-            pygame.draw.rect(self.screen, col_color, (cx, y + 2, 12, 12))
-        y += 18
-
-        for i in range(N):
-            pygame.draw.rect(self.screen, snap.cluster_colors.get(i, (200, 200, 200)), (mx, y + 5, 12, 12))
-            for j in range(N):
-                canonical = (min(i, j), max(i, j))
-                is_editing = self.editing_cell == canonical
-                val = (
-                    (float(self.edit_buffer) if self.edit_buffer not in ('', '-', '.') else 0.0)
-                    if is_editing
-                    else self._current_rule_val(canonical, snap)
-                )
-
-                cx = mx + header_col_w + j * cell_w
-                cell_rect = pygame.Rect(cx + 1, y + 1, cell_w - 2, cell_h - 2)
-                new_rects[(i, j)] = cell_rect
-
-                t = max(-1.0, min(1.0, val / 50.0))
-                if t < 0:
-                    r, g_c, b = int(30 + (1 + t) * 30), int(30 + (1 + t) * 30), int(30 + (-t) * 200)
-                else:
-                    r, g_c, b = int(30 + t * 200), int(30 + (1 - t) * 30), int(30 + (1 - t) * 30)
-
-                cell_bg    = (50, 50, 50)      if is_editing else (r, g_c, b)
-                border_col = (220, 220, 100)   if is_editing else (80, 80, 80)
-                pygame.draw.rect(self.screen, cell_bg, cell_rect)
-                pygame.draw.rect(self.screen, border_col, cell_rect, 1)
-
-                display_str = (self.edit_buffer + "|") if is_editing else f"{val:.0f}"
-                val_surf = self.font_small.render(display_str, True, (230, 230, 230))
-                self.screen.blit(val_surf, val_surf.get_rect(center=cell_rect.center))
-
-            y += cell_h
-
-        self.rule_cell_rects = new_rects
         y += 8
-        self.screen.blit(self.font_small.render("Check terminal for details...", True, (100, 100, 100)), (start_x, y))
+
+        # --- Toggles: CFL (federation) + Attraction (emergent physics) ---
+        def _toggle_button(rect, label, is_on):
+            bg = (30, 110, 30) if is_on else (110, 30, 30)
+            br = (50, 160, 50) if is_on else (160, 50, 50)
+            pygame.draw.rect(self.screen, bg, rect, border_radius=5)
+            pygame.draw.rect(self.screen, br, rect, 2, border_radius=5)
+            surf = self.font_small.render(label, True, (240, 240, 240))
+            self.screen.blit(surf, surf.get_rect(center=rect.center))
+
+        btn_w = GUI_WIDTH - 40
+        self.cfl_toggle_rect = pygame.Rect(start_x, y, btn_w, 26)
+        _toggle_button(
+            self.cfl_toggle_rect,
+            f"Federation (CFL): {'ON' if snap.cfl_enabled else 'OFF'}",
+            snap.cfl_enabled,
+        )
+        y += 40
+
+        self.attraction_toggle_rect = pygame.Rect(start_x, y, btn_w, 26)
+        _toggle_button(
+            self.attraction_toggle_rect,
+            f"Attraction (emergent): {'ON' if snap.attraction_enabled else 'OFF'}",
+            snap.attraction_enabled,
+        )
+        y += 42
+
+        # --- Live metric bars (loss + confidence) ---
+        bar_total_w = GUI_WIDTH - 100
+        bar_h = 14
+        for label, val, bar_color in [
+            ("Loss", snap.avg_loss,       (200,  70,  70)),
+            ("Conf", snap.avg_confidence, ( 70, 190,  70)),
+        ]:
+            self.screen.blit(self.font_small.render(label, True, (160, 160, 160)), (start_x, y + 3))
+            bx = start_x + 30
+            pygame.draw.rect(self.screen, (45, 45, 45), (bx, y + 2, bar_total_w, bar_h), border_radius=3)
+            filled_w = int(bar_total_w * max(0.0, min(1.0, val)))
+            if filled_w > 0:
+                pygame.draw.rect(self.screen, bar_color, (bx, y + 2, filled_w, bar_h), border_radius=3)
+            val_str = self.font_small.render(f"{val:.3f}", True, (200, 200, 200))
+            self.screen.blit(val_str, (bx + bar_total_w + 4, y + 2))
+            y += 30
+
+        # --- Sparkline (last N rounds of avg_loss and avg_confidence) ---
+        if len(snap.loss_history) >= 2:
+            sk_h = 60
+            sk_w = GUI_WIDTH - 48
+            sk_x = start_x
+            # Labels above the graph
+            self.screen.blit(self.font_small.render("— loss", True, (200, 80, 80)), (sk_x, y))
+            self.screen.blit(self.font_small.render("— conf", True, (80, 200, 80)), (sk_x + 44, y))
+            y += 14
+            sk_y = y
+            pygame.draw.rect(self.screen, (18, 18, 28), (sk_x, sk_y, sk_w, sk_h), border_radius=3)
+            pygame.draw.rect(self.screen, (60, 60, 80), (sk_x, sk_y, sk_w, sk_h), 1, border_radius=3)
+
+            def _spark(vals, color):
+                n = len(vals)
+                if n < 2:
+                    return
+                pts = [
+                    (sk_x + int(i * (sk_w - 1) / (n - 1)),
+                     sk_y + sk_h - 1 - int(max(0.0, min(1.0, v)) * (sk_h - 2)))
+                    for i, v in enumerate(vals)
+                ]
+                pygame.draw.aalines(self.screen, color, False, pts)
+
+            _spark(snap.loss_history, (200, 80, 80))
+            _spark(snap.conf_history, (80, 200, 80))
+            y += sk_h + 6
+
+        y += 14
+        pygame.draw.line(self.screen, (80, 80, 80), (start_x, y), (SIM_WIDTH + GUI_WIDTH - 20, y), 1)
+        y += 8
+
+        # --- Rules matrix (hidden when attraction is disabled) ---
+        if snap.attraction_enabled:
+            self.screen.blit(self.font_small.render("ATTRACTION RULES  (−=attract  +=repel  diag=intra)", True, (160, 160, 160)), (start_x, y))
+            y += 16
+            self.screen.blit(self.font_small.render("click to edit  ·  double-click to reset", True, (100, 100, 100)), (start_x, y))
+            y += 28
+
+            N = snap.num_clusters
+            header_col_w = 20
+            cell_w = min(52, (GUI_WIDTH - 48 - header_col_w) // max(1, N))
+            cell_h = 26
+            mx = start_x
+            new_rects = {}
+
+            for j in range(N):
+                col_color = snap.cluster_colors.get(j, (200, 200, 200))
+                cx = mx + header_col_w + j * cell_w + cell_w // 2 - 6
+                pygame.draw.rect(self.screen, col_color, (cx, y + 2, 12, 12))
+            y += 18
+
+            for i in range(N):
+                pygame.draw.rect(self.screen, snap.cluster_colors.get(i, (200, 200, 200)), (mx, y + 5, 12, 12))
+                for j in range(N):
+                    canonical = (min(i, j), max(i, j))
+                    is_editing = self.editing_cell == canonical
+                    val = (
+                        (float(self.edit_buffer) if self.edit_buffer not in ('', '-', '.') else 0.0)
+                        if is_editing
+                        else self._current_rule_val(canonical, snap)
+                    )
+
+                    cx = mx + header_col_w + j * cell_w
+                    cell_rect = pygame.Rect(cx + 1, y + 1, cell_w - 2, cell_h - 2)
+                    new_rects[(i, j)] = cell_rect
+
+                    t = max(-1.0, min(1.0, val / 50.0))
+                    if t < 0:
+                        r, g_c, b = int(30 + (1 + t) * 30), int(30 + (1 + t) * 30), int(30 + (-t) * 200)
+                    else:
+                        r, g_c, b = int(30 + t * 200), int(30 + (1 - t) * 30), int(30 + (1 - t) * 30)
+
+                    cell_bg    = (50, 50, 50)      if is_editing else (r, g_c, b)
+                    border_col = (220, 220, 100)   if is_editing else (80, 80, 80)
+                    pygame.draw.rect(self.screen, cell_bg, cell_rect)
+                    pygame.draw.rect(self.screen, border_col, cell_rect, 1)
+
+                    display_str = (self.edit_buffer + "|") if is_editing else f"{val:.0f}"
+                    val_surf = self.font_small.render(display_str, True, (230, 230, 230))
+                    self.screen.blit(val_surf, val_surf.get_rect(center=cell_rect.center))
+
+                y += cell_h
+
+            self.rule_cell_rects = new_rects
+        else:
+            # Drop click targets and abandon any in-progress edit so a hidden
+            # cell can't receive keystrokes or be re-clicked.
+            self.rule_cell_rects = {}
+            self.editing_cell = None
+            self.edit_buffer = ""
 
         pygame.draw.rect(self.screen, self.bomb_color, self.bomb_rect, border_radius=8)
         pygame.draw.rect(self.screen, (255, 100, 100), self.bomb_rect, 2, border_radius=8)
@@ -624,6 +785,12 @@ class Game:
                     if self.bomb_rect.collidepoint(event.pos):
                         self._commit_edit(snap)
                         self.cmd_queue.put({'type': 'detonate'})
+                    elif self.cfl_toggle_rect.collidepoint(event.pos):
+                        self._commit_edit(snap)
+                        self.cmd_queue.put({'type': 'toggle_cfl'})
+                    elif self.attraction_toggle_rect.collidepoint(event.pos):
+                        self._commit_edit(snap)
+                        self.cmd_queue.put({'type': 'toggle_attraction'})
                     else:
                         now = pygame.time.get_ticks()
                         hit = None

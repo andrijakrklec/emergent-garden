@@ -25,14 +25,35 @@ from src.constants import (
 
 MIN_CLUSTERS = 2
 MAX_CLUSTERS = 6
-SPLIT_LOSS_THRESHOLD = 0.45    # avg local_loss above this triggers a split
-MERGE_SIMILARITY_THRESHOLD = 0.97  # cosine sim above this triggers a merge
-MIN_CLUSTER_SIZE = 3           # clusters smaller than this get absorbed
+# Split fires when EITHER (a) avg_loss exceeds threshold (a cluster genuinely
+# can't serve its members) OR (b) directional coherence among members drops
+# below threshold (members disagree on heading — the natural IFCA split signal,
+# since IFCA already pins avg_loss near the local minimum).
+SPLIT_LOSS_THRESHOLD = 0.30
+SPLIT_COHERENCE_THRESHOLD = 0.70   # mean cos-sim to cluster-mean direction
+# Merge thresholds: cosine sim of mean direction (loosened from 0.97 — IFCA's
+# bias-averaged means cluster more cleanly so 0.92 is a reasonable bar) plus
+# spatial-target proximity (two clusters whose targets have drifted close
+# together are functionally redundant under IFCA's loss).
+MERGE_SIMILARITY_THRESHOLD = 0.92
+MERGE_TARGET_DISTANCE = 120.0      # px — targets closer than this favour merge
+MIN_CLUSTER_SIZE = 3               # clusters smaller than this get absorbed
 
 BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
 BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
 
-BEHAVIORAL_FORCE  = 8.0    # goal-directed push from model[0:2], scaled by confidence
+# Identity slice used for KMeans assignment.
+# [0:2] direction is the persistent learned identity; [2] confidence is a slow EMA.
+# Features [3:8] are situational (pressure / alignment / loss / drift / stability)
+# and would cause spurious migrations if used for clustering.
+IDENTITY_SLICE = slice(0, 2)
+
+# Hysteresis: a particle only migrates if the new cluster's centroid is at least
+# this fraction closer (in identity-space) than its current cluster's centroid.
+# 0.0 = no hysteresis (every KMeans flip migrates), 0.20 = need 20% improvement.
+MIGRATION_HYSTERESIS = 0.35
+
+BEHAVIORAL_FORCE  = 30.0    # goal-directed push from model[0:2], scaled by confidence
 STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
 STRAGGLER_DRIFT   = 0.04   # drift_velocity threshold below which a particle is "stuck"
 
@@ -77,6 +98,16 @@ class Particle:
         self._stable_rounds = 0
         self._speed_ema = 0.0  # exponential moving average of speed
 
+        # Per-particle directional bias — the non-IID analog from the CFL paper.
+        # Each "client" systematically misperceives the ideal direction by a random
+        # fixed offset.  Federation averages out these biases; solo learning cannot.
+        _bias_angle    = random.uniform(0, 2 * math.pi)
+        _bias_strength = random.uniform(0.25, 0.60)
+        self._local_bias = np.array([
+            math.cos(_bias_angle) * _bias_strength,
+            math.sin(_bias_angle) * _bias_strength,
+        ])
+
 
     def update(self, dt: float):
         """Updates the attributes of the particle
@@ -106,6 +137,19 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
         tx_n, ty_n = tx / dist_t, ty / dist_t
     else:
         tx_n, ty_n = 0.0, 0.0
+
+    # Save the unbiased target direction so we can compute true directional error later.
+    # (alignment vs. biased ideal would DECREASE when CFL corrects the model, which
+    # is the opposite of what we want the loss metric to show.)
+    _true_tx, _true_ty = tx_n, ty_n
+
+    # Non-IID bias: each particle persistently misperceives the ideal direction.
+    # Without CFL aggregation the bias accumulates; federation averages it out.
+    _bx = tx_n + particle._local_bias[0]
+    _by = ty_n + particle._local_bias[1]
+    _bn = math.hypot(_bx, _by)
+    if _bn > 0:
+        tx_n, ty_n = _bx / _bn, _by / _bn
 
     # --- Obstacle repulsion ---
     ox_total, oy_total = 0.0, 0.0
@@ -150,9 +194,15 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     # --- Update [3]: obstacle_pressure (decaying memory) ---
     particle.model[3] = 0.9 * particle.model[3] + 0.1 * min(raw_pressure, 1.0)
 
-    # --- Update [6]: local_loss (normalised distance to target) ---
+    # --- Update [6]: local_loss (geometric distance + directional error) ---
+    # directional_error uses the TRUE target direction (pre-bias), not the biased ideal.
+    # When CFL corrects the model toward the true direction, true_alignment rises and
+    # this error falls — making the CFL benefit visible in the loss metric.
     max_dist = math.hypot(SIM_DIM[0], SIM_DIM[1])
-    particle.model[6] = min(dist_t / max_dist, 1.0)
+    geo_loss = min(dist_t / max_dist, 1.0)
+    true_alignment = particle.model[0] * _true_tx + particle.model[1] * _true_ty
+    directional_error = 1.0 - (true_alignment + 1.0) / 2.0
+    particle.model[6] = min(0.5 * geo_loss + 0.5 * directional_error, 1.0)
 
     # --- Update [7]: drift_velocity (EMA of speed) ---
     speed = math.hypot(particle.vx, particle.vy)
@@ -197,10 +247,13 @@ def update_peer_alignment(particles, neighbor_radius=90.0):
         cos_sim = float(np.dot(directions[i], avg_dir))
         p.model[4] = (cos_sim + 1) / 2
 
-def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float, rules: dict = None):
+def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float, rules: dict = None, attraction_enabled: bool = True):
     """
     Revised Physics: Prevents stacking by adding emergency repulsion.
     rules: optional dict mapping (min(ci,cj), max(ci,cj)) -> float for per-pair forces.
+    attraction_enabled: if False, the inter-cluster/intra-cluster gravitational forces
+        are disabled (only emergency anti-stacking repulsion remains).  Lets you
+        isolate the effect of the simple emergent physics rules on learning.
     """
     # Initialize forces
     forces = [np.zeros(2) for _ in particles]
@@ -225,13 +278,12 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
 
             d = d_sq ** 0.5
 
-            # 2. EMERGENCY REPULSION
-            # If particles are touching (closer than radius), push them apart HARD
+            # 2. EMERGENCY REPULSION (always on — prevents visual stacking)
             if d < PARTICLE_FORCE_LOWER_RANGE * 2:
                 F_scalar = 200.0  # Massive repulsion to unclump them
 
-            # 3. NORMAL PHYSICS
-            else:
+            # 3. NORMAL ATTRACTION/REPULSION (only when emergent rules are enabled)
+            elif attraction_enabled:
                 g = 0.0
 
                 # Only interact if both have a valid cluster
@@ -250,6 +302,8 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
                 denom = (d ** PARTICLE_POWER_OF_DISTANCE) * len(particles)
                 if denom == 0: denom = 0.001
                 F_scalar = g * (1 / denom)
+            else:
+                continue  # attraction off and outside emergency range — no force
 
             # Apply forces
             fx = F_scalar * dx
@@ -367,9 +421,81 @@ def compute_cluster_stats(particles, n_clusters):
         }
     return stats
 
-def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter):
+def _direction_coherence(members):
+    """Mean cosine similarity of members' directions to the cluster's own
+    mean direction. 1.0 = perfectly aligned, 0 = chaotic, -1 = anti-aligned.
+    Used as IFCA's split signal: under IFCA, avg_loss is pinned near the
+    local minimum after assignment, so loss can't tell us a cluster is
+    incoherent — directional disagreement among members can.
     """
-    cluster_ages: dict {cluster_id: rounds_since_created}
+    if len(members) < 2:
+        return 1.0
+    dirs = np.array([p.model[0:2] for p in members])
+    mean_dir = dirs.mean(axis=0)
+    norm = np.linalg.norm(mean_dir)
+    if norm == 0:
+        return 0.0
+    mean_dir = mean_dir / norm
+    return float((dirs @ mean_dir).mean())
+
+
+def _ifca_score(particle, target, theta, max_dist):
+    """IFCA loss for evaluating cluster k on `particle`.
+
+    Lower is better. Mirrors the per-particle loss from `local_train`'s
+    model[6] but evaluated under cluster k's *broadcast* model θ_k and
+    cluster k's target. This is what IFCA clients compute locally for
+    every candidate model to pick their cluster.
+    """
+    dx = target[0] - particle.x
+    dy = target[1] - particle.y
+    dist = math.hypot(dx, dy)
+    geo_loss = min(dist / max_dist, 1.0)
+
+    if dist > 0 and theta is not None:
+        true_dx, true_dy = dx / dist, dy / dist
+        # Alignment of θ_k with the true direction from particle to target_k.
+        alignment = float(theta[0] * true_dx + theta[1] * true_dy)  # -1..1
+        dir_loss = (1.0 - alignment) / 2.0
+    else:
+        dir_loss = 0.5  # no info → neutral
+
+    return 0.5 * geo_loss + 0.5 * dir_loss
+
+
+def _compute_cluster_models(particles, n_clusters):
+    """Confidence-weighted mean model per cluster (the broadcast θ_k).
+
+    Returns a list of length n_clusters; entries are length-8 numpy
+    arrays with [0:2] re-normalised, or None for empty clusters.
+    """
+    cluster_models = [None] * n_clusters
+    for k in range(n_clusters):
+        members = [p for p in particles if p.cluster_id == k]
+        if not members:
+            continue
+        weights = np.array([p.model[2] for p in members])
+        weights /= weights.sum() + 1e-8
+        theta = sum(w * p.model for w, p in zip(weights, members))
+        norm = np.linalg.norm(theta[0:2])
+        if norm > 0:
+            theta[0:2] = theta[0:2] / norm
+        cluster_models[k] = theta
+    return cluster_models
+
+
+def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter):
+    """IFCA-style federated clustering round (Ghosh et al. 2020).
+
+    Each particle evaluates every cluster's broadcast model θ_k against
+    its own data (distance + directional alignment to target_k) and
+    picks the cluster with the lowest loss. After assignment, each
+    cluster aggregates its members' models with the existing
+    age-adaptive blend.
+
+    `kmeans_model` is retained in the signature for backward compat with
+    callers that read `.n_clusters` and `.inertia_`. We fit a fresh
+    KMeans on identity features at the end purely to keep that contract.
     """
     if not particles:
         return {}, kmeans_model, cluster_targets, cluster_colors, cluster_ages, kmeans_model.n_clusters, None, cooldown_counter
@@ -377,63 +503,57 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
     n = kmeans_model.n_clusters
     old_ids = [p.cluster_id for p in particles]
 
-    all_models = np.array([p.model for p in particles])
+    # --- IFCA broadcast: build θ_k from current cluster membership ---
+    cluster_models = _compute_cluster_models(particles, n)
+    max_dist = math.hypot(SIM_DIM[0], SIM_DIM[1])
 
-    # Warm-start: use current cluster means as initial centroids to reduce label permutation
-    try:
-        init_centroids = np.array([
-            np.mean([p.model for p in particles if p.cluster_id == cid], axis=0)
-            if any(p.cluster_id == cid for p in particles)
-            else all_models[np.random.randint(len(all_models))]
-            for cid in range(n)
-        ])
-        warm_kmeans = KMeans(n_clusters=n, init=init_centroids, n_init=1, random_state=0)
-        new_labels = warm_kmeans.fit_predict(all_models)
-        kmeans_model = warm_kmeans
-    except Exception:
-        new_labels = kmeans_model.fit_predict(all_models)
+    # Fallback for clusters that are currently empty: seed θ_k with a
+    # unit vector pointing from the simulation centre toward target_k,
+    # so the loss is well-defined and the cluster can still attract members.
+    cx, cy = SIM_DIM[0] / 2.0, SIM_DIM[1] / 2.0
+    for k in range(n):
+        if cluster_models[k] is None and k < len(cluster_targets):
+            tx, ty = cluster_targets[k]
+            dx, dy = tx - cx, ty - cy
+            d = math.hypot(dx, dy)
+            theta = np.zeros(8, dtype=np.float64)
+            if d > 0:
+                theta[0], theta[1] = dx / d, dy / d
+            theta[2] = 0.5  # middling confidence
+            cluster_models[k] = theta
 
+    # --- IFCA assignment: each particle picks argmin loss across θ_k ---
     transfers = defaultdict(int)
     for i, p in enumerate(particles):
         old_id = old_ids[i]
-        new_id = int(new_labels[i])
+
+        losses = [
+            _ifca_score(p, cluster_targets[k], cluster_models[k], max_dist)
+            for k in range(n)
+        ]
+        new_id = int(np.argmin(losses))
+
+        # Hysteresis: only switch if the chosen cluster's loss is meaningfully
+        # below the current cluster's loss. Stops particles flipping between
+        # nearly-equivalent clusters when geometry barely favours one.
+        if 0 <= old_id < n and old_id != new_id:
+            if losses[new_id] >= losses[old_id] * (1.0 - MIGRATION_HYSTERESIS):
+                new_id = old_id
+
         if old_id != new_id:
             transfers[(old_id, new_id)] += 1
         p.cluster_id = new_id
 
-    # --- Compact out any empty clusters produced by KMeans ---
-    # KMeans with n_init=1 (warm start) can leave clusters with 0 members when
-    # two centroids are very close. Remove gaps so IDs stay contiguous.
-    occupied = sorted(set(p.cluster_id for p in particles))
-    if len(occupied) < n:
-        remap = {old: new for new, old in enumerate(occupied)}
-        cluster_targets = [cluster_targets[i] for i in occupied]
-        new_colors = {remap[i]: cluster_colors[i] for i in occupied if i in cluster_colors}
-        new_colors[-1] = cluster_colors.get(-1, (80, 80, 80))
-        cluster_colors = new_colors
-        cluster_ages = {remap[i]: cluster_ages.get(i, 0) for i in occupied}
-        n = len(occupied)
-        kmeans_model = KMeans(n_clusters=n, n_init=10, random_state=0)
-        for p in particles:
-            p.cluster_id = remap[p.cluster_id]
-            p._prev_cluster_id = remap.get(p._prev_cluster_id, -1)
-            p.target_idx = min(p.cluster_id, len(cluster_targets) - 1)
-
-    # --- Weighted aggregation with adaptive blend ratio ---
+    # --- Aggregation: recompute θ_k from new assignments and blend ---
+    aggregated_models = _compute_cluster_models(particles, n)
     for cid in range(n):
-        members = [p for p in particles if p.cluster_id == cid]
-        if not members:
+        aggregated = aggregated_models[cid]
+        if aggregated is None:
             continue
+        members = [p for p in particles if p.cluster_id == cid]
 
-        weights = np.array([p.model[2] for p in members])
-        weights /= weights.sum() + 1e-8
-
-        aggregated = sum(w * p.model for w, p in zip(weights, members))
-        norm = np.linalg.norm(aggregated[0:2])
-        if norm > 0:
-            aggregated[0:2] /= norm
-
-        # Blend ratio depends on cluster age
+        # Blend ratio depends on cluster age (newborn clusters keep more
+        # local state so they don't immediately re-merge with the parent).
         age = cluster_ages.get(cid, BLEND_MATURITY_ROUNDS)
         t = min(age / BLEND_MATURITY_ROUNDS, 1.0)  # 0.0 = newborn, 1.0 = mature
         local_weight  = BLEND_LOCAL_NEW + t * (BLEND_LOCAL_MATURE - BLEND_LOCAL_NEW)
@@ -443,6 +563,22 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
             p.model = local_weight * p.model + global_weight * aggregated
             p.model[2] = np.clip(p.model[2], 0.01, 1.0)
             p.model[3:5] = np.clip(p.model[3:5], 0.0, 1.0)
+
+    # --- Re-fit KMeans purely for the .inertia_ / .n_clusters contract ---
+    # IFCA itself doesn't need this; downstream logging/printing reads it.
+    try:
+        identity_models = np.array([p.model[IDENTITY_SLICE] for p in particles])
+        init_centroids = np.array([
+            np.mean([p.model[IDENTITY_SLICE] for p in particles if p.cluster_id == cid], axis=0)
+            if any(p.cluster_id == cid for p in particles)
+            else identity_models[np.random.randint(len(identity_models))]
+            for cid in range(n)
+        ])
+        warm_kmeans = KMeans(n_clusters=n, init=init_centroids, n_init=1, random_state=0)
+        warm_kmeans.fit(identity_models)
+        kmeans_model = warm_kmeans
+    except Exception:
+        pass
 
     # Stable round counter
     for p in particles:
@@ -481,22 +617,57 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
 
     # MERGE
     if n > MIN_CLUSTERS:
-        best_sim, merge_pair = -1.0, None
-        for a in range(n):
-            for b in range(a + 1, n):
-                ma = stats[a]['mean_model']
-                mb = stats[b]['mean_model']
-                if ma is None or mb is None:
-                    continue
-                # Don't merge clusters that are still young — let them diverge first
-                if cluster_ages.get(a, 0) < BLEND_MATURITY_ROUNDS or \
-                   cluster_ages.get(b, 0) < BLEND_MATURITY_ROUNDS:
-                    continue
-                sim = float(np.dot(ma[0:2], mb[0:2]))
-                if sim > best_sim:
-                    best_sim, merge_pair = sim, (a, b)
+        merge_pair = None
 
-        if best_sim >= MERGE_SIMILARITY_THRESHOLD and merge_pair:
+        # Path 1: Absorb tiny clusters. A cluster with fewer than MIN_CLUSTER_SIZE
+        # members is effectively dead under IFCA (its θ_k is too noisy) — fold
+        # it into the cluster whose target is nearest, regardless of age.
+        tiny = [cid for cid in range(n) if stats[cid]['size'] < MIN_CLUSTER_SIZE]
+        for tcid in tiny:
+            tx, ty = cluster_targets[tcid]
+            other = [cid for cid in range(n) if cid != tcid and stats[cid]['size'] > 0]
+            if not other:
+                continue
+            nearest = min(
+                other,
+                key=lambda cid: math.hypot(cluster_targets[cid][0] - tx,
+                                           cluster_targets[cid][1] - ty),
+            )
+            merge_pair = (min(nearest, tcid), max(nearest, tcid))
+            print(f"   > MERGE-tiny: cluster {tcid} (size={stats[tcid]['size']}) absorbed into {nearest}")
+            break
+
+        # Path 2: Standard similarity-based merge for mature, redundant clusters.
+        if merge_pair is None:
+            best_score, candidate = -float('inf'), None
+            for a in range(n):
+                for b in range(a + 1, n):
+                    ma = stats[a]['mean_model']
+                    mb = stats[b]['mean_model']
+                    if ma is None or mb is None:
+                        continue
+                    if cluster_ages.get(a, 0) < BLEND_MATURITY_ROUNDS or \
+                       cluster_ages.get(b, 0) < BLEND_MATURITY_ROUNDS:
+                        continue
+
+                    sim = float(np.dot(ma[0:2], mb[0:2]))
+                    # Spatial-target component: 1.0 when targets coincide,
+                    # 0.0 when they're MERGE_TARGET_DISTANCE or farther apart.
+                    tdist = math.hypot(
+                        cluster_targets[a][0] - cluster_targets[b][0],
+                        cluster_targets[a][1] - cluster_targets[b][1],
+                    )
+                    target_score = max(0.0, 1.0 - tdist / MERGE_TARGET_DISTANCE)
+                    # Combined score: high direction sim OR very close targets.
+                    score = max(sim, target_score)
+                    if score > best_score:
+                        best_score, candidate = score, (a, b)
+
+            if candidate and best_score >= MERGE_SIMILARITY_THRESHOLD:
+                merge_pair = candidate
+                print(f"   > MERGE-redundant: {candidate} score={best_score:.3f}")
+
+        if merge_pair:
             keep, drop = merge_pair
             for p in particles:
                 if p.cluster_id == drop:
@@ -534,24 +705,59 @@ def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, clus
 
             return transfers, new_kmeans, new_targets, new_colors, new_ages, new_n, ('merge', drop), 10
 
-    # SPLIT
+    # SPLIT — under IFCA the right signal is directional incoherence among
+    # members (avg_loss is mechanically pinned at the local min after assign).
     if n < MAX_CLUSTERS:
-        worst_cid = max(
-            (cid for cid in range(n) if stats[cid]['size'] >= MIN_CLUSTER_SIZE * 2),
-            key=lambda cid: stats[cid]['avg_loss'],
-            default=None
-        )
-        if worst_cid is not None and stats[worst_cid]['avg_loss'] > SPLIT_LOSS_THRESHOLD:
+        eligible = [cid for cid in range(n)
+                    if stats[cid]['size'] >= MIN_CLUSTER_SIZE * 2]
+
+        worst_cid, worst_score = None, 0.0
+        for cid in eligible:
+            members = [p for p in particles if p.cluster_id == cid]
+            coherence = _direction_coherence(members)
+            avg_loss = stats[cid]['avg_loss']
+
+            # Combined "wants to split" score: how much each criterion exceeds
+            # its threshold. Either alone can trigger.
+            coh_excess  = max(0.0, SPLIT_COHERENCE_THRESHOLD - coherence)
+            loss_excess = max(0.0, avg_loss - SPLIT_LOSS_THRESHOLD)
+            score = coh_excess + loss_excess
+            if score > worst_score:
+                worst_score, worst_cid = score, cid
+
+        if worst_cid is not None and worst_score > 0.0:
             members = [p for p in particles if p.cluster_id == worst_cid]
-            # Sort by x and take the lower half — guarantees both sides get exactly
-            # half the members regardless of duplicate x-values (strict median < can
-            # leave one side empty when all particles share the same x coordinate).
-            members_sorted = sorted(members, key=lambda p: p.x)
-            split_count = max(MIN_CLUSTER_SIZE, len(members_sorted) // 2)
+            members_coh = _direction_coherence(members)
+            members_avg = stats[worst_cid]['avg_loss']
+            print(f"   > SPLIT-trigger: cluster {worst_cid} "
+                  f"coherence={members_coh:.2f} avg_loss={members_avg:.2f}")
+
+            # Split along the direction-disagreement axis: 2-means on member
+            # heading vectors. Members in one heading group form the new cluster.
+            # Falls back to spatial-x split when 2-means is too unbalanced.
+            new_members = None
+            if len(members) >= MIN_CLUSTER_SIZE * 2:
+                try:
+                    dirs = np.array([p.model[0:2] for p in members])
+                    km2 = KMeans(n_clusters=2, n_init=3, random_state=0)
+                    labels = km2.fit_predict(dirs)
+                    group_a = [m for m, l in zip(members, labels) if l == 0]
+                    group_b = [m for m, l in zip(members, labels) if l == 1]
+                    if len(group_a) >= MIN_CLUSTER_SIZE and len(group_b) >= MIN_CLUSTER_SIZE:
+                        # Smaller group becomes the new cluster.
+                        new_members = group_b if len(group_b) <= len(group_a) else group_a
+                except Exception:
+                    pass
+
+            if new_members is None:
+                members_sorted = sorted(members, key=lambda p: p.x)
+                split_count = max(MIN_CLUSTER_SIZE, len(members_sorted) // 2)
+                new_members = members_sorted[:split_count]
+
             new_cid = n
-            for p in members_sorted[:split_count]:
+            for p in new_members:
                 p.cluster_id = new_cid
-                p._prev_cluster_id = -1  # force stability reset
+                p._prev_cluster_id = -1
                 p._stable_rounds = 0
 
             ox, oy = cluster_targets[worst_cid]
