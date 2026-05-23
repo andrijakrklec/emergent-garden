@@ -1,12 +1,20 @@
-"""
-AUTHOR: Vishal Paudel
-(Modificirano za CFL simulaciju)
+"""@file particle.py
+@brief Agent model, local training, emergent physics, and the IFCA federation round.
+
+This module is the algorithmic core of the simulation. It defines:
+  - Particle — a federated agent coupling an 8-D cognitive model with 2-D physics.
+  - local_train() — one local training step per agent (cognitive domain).
+  - update_peer_alignment() — spatial-neighbourhood feedback into the model.
+  - apply_physics_rules() — inter-agent forces, obstacle/wall handling (physical domain).
+  - run_cfl_round() — the IFCA-style clustered federated learning round, including
+    confidence-weighted aggregation and spontaneous cluster split / merge.
+
+Original emergent-physics base by Vishal Paudel; extended for clustered federated
+learning (CFL) as part of the thesis. See README.md for the conceptual mapping.
 """
 from typing import Tuple, List
-from ctypes import c_ubyte
 from collections import defaultdict
 
-import pygame
 import random
 import math
 import numpy as np
@@ -15,9 +23,9 @@ from sklearn.cluster import KMeans
 
 from src.constants import (
     SIM_DIM,
-    PARTICLE_DEFAULT_RADIUS, SCREEN_DIM, WALL_HEAT, WALL_BOUNDARY,
+    PARTICLE_DEFAULT_RADIUS, WALL_BOUNDARY,
     PARTICLE_FORCE_LOWER_RANGE, PARTICLE_FORCE_UPPER_RANGE,
-    PARTICLE_POWER_OF_DISTANCE, PARTICLE_DEFAULT_UPDATE_TIME, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED,
+    PARTICLE_POWER_OF_DISTANCE, PARTICLE_LOSE_ENERGY, PARTICLE_MAX_SPEED,
     SIM_HEIGHT, SIM_WIDTH,
     PARTICLE_COLOR_RED, PARTICLE_COLOR_YELLOW, PARTICLE_COLOR_GREEN,
     PARTICLE_COLOR_BLUE, PARTICLE_COLOR_WHITE,
@@ -25,12 +33,14 @@ from src.constants import (
 
 MIN_CLUSTERS = 2
 MAX_CLUSTERS = 6
+
 # Split fires when EITHER (a) avg_loss exceeds threshold (a cluster genuinely
 # can't serve its members) OR (b) directional coherence among members drops
 # below threshold (members disagree on heading — the natural IFCA split signal,
 # since IFCA already pins avg_loss near the local minimum).
 SPLIT_LOSS_THRESHOLD = 0.30
 SPLIT_COHERENCE_THRESHOLD = 0.70   # mean cos-sim to cluster-mean direction
+
 # Merge thresholds: cosine sim of mean direction (loosened from 0.97 — IFCA's
 # bias-averaged means cluster more cleanly so 0.92 is a reasonable bar) plus
 # spatial-target proximity (two clusters whose targets have drifted close
@@ -51,7 +61,7 @@ IDENTITY_SLICE = slice(0, 2)
 # Hysteresis: a particle only migrates if the new cluster's centroid is at least
 # this fraction closer (in identity-space) than its current cluster's centroid.
 # 0.0 = no hysteresis (every KMeans flip migrates), 0.20 = need 20% improvement.
-MIGRATION_HYSTERESIS = 0.35
+MIGRATION_HYSTERESIS = 0.5
 
 BEHAVIORAL_FORCE  = 30.0    # goal-directed push from model[0:2], scaled by confidence
 STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
@@ -62,7 +72,32 @@ OBSTACLE_SOFT_STRENGTH = 60.0 # base strength of the soft-zone push
 BLEND_LOCAL_MATURE = 0.40   # local weight once matured (your existing value)
 
 class Particle:
+    """@brief A single federated agent: cognitive model + physical body.
+
+    Each particle is simultaneously a federated-learning *client* (it owns an
+    8-D @c model vector and trains it locally) and a physical body (position,
+    velocity) that moves under emergent forces. The two are coupled: the learned
+    heading drives motion, and motion/neighbourhood feed back into the model.
+
+    Model layout (indices into @c self.model):
+      - [0,1] dir_x, dir_y     — learned heading (unit vector); the clustering identity.
+      - [2]   confidence       — 0..1 EMA of how consistently it converges.
+      - [3]   obstacle_pressure— 0..1 decaying memory of recent obstacle proximity.
+      - [4]   peer_alignment   — 0..1 cosine similarity to same-cluster neighbours.
+      - [5]   rounds_stable    — normalised rounds since the last cluster change.
+      - [6]   local_loss       — 0..1 distance + directional error to the target.
+      - [7]   drift_velocity   — 0..1 EMA of speed.
+    """
+
     def __init__(self, x, v, c, target_idx, r=PARTICLE_DEFAULT_RADIUS):
+        """@brief Construct an agent with a random heading, target, and non-IID bias.
+
+        @param x (x, y) initial position.
+        @param v (vx, vy) initial velocity.
+        @param c RGB colour tuple (overwritten by the cluster colour at render time).
+        @param target_idx Index of the cluster target this agent initially chases.
+        @param r Draw radius in pixels.
+        """
         self.x = x[0]
         self.y = x[1]
         self.vx = v[0]
@@ -98,6 +133,13 @@ class Particle:
         self._stable_rounds = 0
         self._speed_ema = 0.0  # exponential moving average of speed
 
+        # Per-particle inner target — what this particle actually chases.
+        # The group/cluster target is just the average of these for visualisation.
+        _margin = WALL_BOUNDARY * 4
+        self._target_x     = random.uniform(_margin, SIM_WIDTH  - _margin)
+        self._target_y     = random.uniform(_margin, SIM_HEIGHT - _margin)
+        self._target_angle = random.uniform(0, 2 * math.pi)
+
         # Per-particle directional bias — the non-IID analog from the CFL paper.
         # Each "client" systematically misperceives the ideal direction by a random
         # fixed offset.  Federation averages out these biases; solo learning cannot.
@@ -109,26 +151,22 @@ class Particle:
         ])
 
 
-    def update(self, dt: float):
-        """Updates the attributes of the particle
-
-        Args:
-            dt (float): The delta time, time since the last frame update
-        """
-        # (Ova funkcija se trenutno ne koristi, fizika se rješava centralno)
-        pass
-
-
-    def draw(self, screen: pygame.Surface):
-        """Draws the particle(a circle)
-
-        Args:
-            screen (pygame.Surface):    The     screen  to draw onto
-        """
-        pygame.draw.circle(screen, self.c, (self.x, self.y), self.r)
-
-
 def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
+    """@brief One local training step for a single agent (the cognitive update).
+
+    Nudges the agent's learned heading @c model[0:2] toward its ideal direction —
+    the true direction to its target corrupted by the agent's fixed non-IID bias,
+    then blended with obstacle-avoidance — and refreshes the situational model
+    dimensions: confidence [2], obstacle_pressure [3], local_loss [6] and
+    drift_velocity [7]. The loss uses the *true* (unbiased) target direction so
+    that federation correcting the bias is visible as a loss decrease.
+
+    @param particle The Particle to train; mutated in place.
+    @param current_target_pos (x, y) of this agent's personal inner target.
+    @param obstacles List of (ox, oy, radius) obstacle circles to avoid.
+    @param learning_rate Base step size for the heading update (scaled up under pressure).
+    @return None — @p particle.model is updated in place.
+    """
     tx = current_target_pos[0] - particle.x
     ty = current_target_pos[1] - particle.y
     dist_t = math.hypot(tx, ty)
@@ -199,10 +237,10 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     # When CFL corrects the model toward the true direction, true_alignment rises and
     # this error falls — making the CFL benefit visible in the loss metric.
     max_dist = math.hypot(SIM_DIM[0], SIM_DIM[1])
-    geo_loss = min(dist_t / max_dist, 1.0)
+    geo_loss = min(dist_t / max_dist, 1.0) ** 0.5
     true_alignment = particle.model[0] * _true_tx + particle.model[1] * _true_ty
     directional_error = 1.0 - (true_alignment + 1.0) / 2.0
-    particle.model[6] = min(0.5 * geo_loss + 0.5 * directional_error, 1.0)
+    particle.model[6] = min(0.7 * geo_loss + 0.3 * directional_error, 1.0)
 
     # --- Update [7]: drift_velocity (EMA of speed) ---
     speed = math.hypot(particle.vx, particle.vy)
@@ -210,7 +248,17 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     particle.model[7] = min(particle._speed_ema / PARTICLE_MAX_SPEED, 1.0)
 
 def update_peer_alignment(particles, neighbor_radius=90.0):
-    """Updates model[4] for every particle based on directional consensus with cluster neighbors."""
+    """@brief Feed spatial-neighbourhood consensus back into each agent's model (physical -> cognitive).
+
+    Sets @c model[4] (peer_alignment) of every agent to the cosine similarity
+    between its own heading and the mean heading of same-cluster neighbours within
+    @p neighbor_radius, remapped to 0..1. Agents with no cluster or no neighbours
+    get 0.
+
+    @param particles List of all Particle agents; mutated in place.
+    @param neighbor_radius Pixel radius defining the spatial neighbourhood.
+    @return None.
+    """
     if not particles:
         return
 
@@ -248,12 +296,23 @@ def update_peer_alignment(particles, neighbor_radius=90.0):
         p.model[4] = (cos_sim + 1) / 2
 
 def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, int, int]], g_attract: float, g_repel: float, dt: float, rules: dict = None, attraction_enabled: bool = True):
-    """
-    Revised Physics: Prevents stacking by adding emergency repulsion.
-    rules: optional dict mapping (min(ci,cj), max(ci,cj)) -> float for per-pair forces.
-    attraction_enabled: if False, the inter-cluster/intra-cluster gravitational forces
-        are disabled (only emergency anti-stacking repulsion remains).  Lets you
-        isolate the effect of the simple emergent physics rules on learning.
+    """@brief Integrate one physics tick: inter-agent forces, obstacles, walls (the physical domain).
+
+    Accumulates per-agent forces from: pairwise attraction/repulsion (governed by
+    cluster membership and the @p rules matrix), always-on emergency anti-stacking
+    repulsion, soft obstacle pre-contact repulsion, and the model-directed
+    "behavioral force" (cognitive -> physical coupling, scaled by confidence). It
+    then advances velocities/positions and resolves hard obstacle and wall collisions.
+
+    @param particles List of all Particle agents; positions/velocities mutated in place.
+    @param obstacles List of (ox, oy, radius) obstacle circles.
+    @param g_attract Default intra-cluster force (negative attracts).
+    @param g_repel Default inter-cluster force (positive repels).
+    @param dt Integration timestep in seconds.
+    @param rules Optional dict mapping (min(ci,cj), max(ci,cj)) -> float for per-pair forces.
+    @param attraction_enabled If False, intra/inter-cluster forces are disabled and only the
+        emergency anti-stacking repulsion remains — used to ablate the emergent physics.
+    @return None.
     """
     # Initialize forces
     forces = [np.zeros(2) for _ in particles]
@@ -377,7 +436,6 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
 
         # --- UPDATED WALL COLLISIONS ---
         # Use SIM_DIM[0] and SIM_DIM[1] instead of SCREEN_DIM
-
         V = 0.9
         D = WALL_BOUNDARY
 
@@ -402,7 +460,13 @@ def apply_physics_rules(particles: List[Particle], obstacles: List[Tuple[int, in
             p.vy *= -V
 
 def compute_cluster_stats(particles, n_clusters):
-    """Returns per-cluster: avg_loss, avg_confidence, size, mean_model."""
+    """@brief Aggregate per-cluster health used by the split/merge logic and logger.
+
+    @param particles List of all Particle agents.
+    @param n_clusters Number of clusters to report on (ids 0..n_clusters-1).
+    @return dict cluster_id -> {size, avg_loss, avg_confidence, mean_model}, where
+        @c mean_model is the element-wise mean 8-D model (None for empty clusters).
+    """
     stats = {}
     for cid in range(n_clusters):
         members = [p for p in particles if p.cluster_id == cid]
@@ -422,11 +486,15 @@ def compute_cluster_stats(particles, n_clusters):
     return stats
 
 def _direction_coherence(members):
-    """Mean cosine similarity of members' directions to the cluster's own
-    mean direction. 1.0 = perfectly aligned, 0 = chaotic, -1 = anti-aligned.
-    Used as IFCA's split signal: under IFCA, avg_loss is pinned near the
-    local minimum after assignment, so loss can't tell us a cluster is
-    incoherent — directional disagreement among members can.
+    """@brief Directional coherence of a cluster — the IFCA split signal.
+
+    Mean cosine similarity of members' headings to the cluster's own mean
+    heading: 1.0 = perfectly aligned, 0 = chaotic, -1 = anti-aligned. Under IFCA
+    avg_loss is pinned near the local minimum after assignment, so loss cannot
+    reveal an incoherent cluster — directional disagreement among members can.
+
+    @param members List of Particle agents in one cluster.
+    @return float coherence in [-1, 1] (1.0 when fewer than two members).
     """
     if len(members) < 2:
         return 1.0
@@ -440,12 +508,18 @@ def _direction_coherence(members):
 
 
 def _ifca_score(particle, target, theta, max_dist):
-    """IFCA loss for evaluating cluster k on `particle`.
+    """@brief IFCA loss for evaluating cluster k on a single agent (lower is better).
 
-    Lower is better. Mirrors the per-particle loss from `local_train`'s
-    model[6] but evaluated under cluster k's *broadcast* model θ_k and
-    cluster k's target. This is what IFCA clients compute locally for
-    every candidate model to pick their cluster.
+    Mirrors the per-agent loss from local_train() (model[6]) but evaluated
+    under cluster k's *broadcast* model theta and cluster k's target. This is the
+    score each IFCA client computes locally for every candidate model in order to
+    pick its cluster (argmin over k).
+
+    @param particle The agent being evaluated.
+    @param target (x, y) spatial target of cluster k.
+    @param theta Cluster k's broadcast 8-D model (its heading is theta[0:2]); may be None.
+    @param max_dist Diagonal of the simulation area, used to normalise distance.
+    @return float loss = 0.5 * geometric_loss + 0.5 * directional_loss.
     """
     dx = target[0] - particle.x
     dy = target[1] - particle.y
@@ -464,10 +538,15 @@ def _ifca_score(particle, target, theta, max_dist):
 
 
 def _compute_cluster_models(particles, n_clusters):
-    """Confidence-weighted mean model per cluster (the broadcast θ_k).
+    """@brief Confidence-weighted mean model per cluster — the broadcast theta_k.
 
-    Returns a list of length n_clusters; entries are length-8 numpy
-    arrays with [0:2] re-normalised, or None for empty clusters.
+    Each cluster's model is the mean of its members' 8-D models weighted by
+    confidence (model[2]), with the heading [0:2] re-normalised to a unit vector.
+
+    @param particles List of all Particle agents.
+    @param n_clusters Number of clusters.
+    @return list of length @p n_clusters; each entry is a length-8 numpy array, or
+        None for an empty cluster.
     """
     cluster_models = [None] * n_clusters
     for k in range(n_clusters):
@@ -485,17 +564,25 @@ def _compute_cluster_models(particles, n_clusters):
 
 
 def run_cfl_round(particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter):
-    """IFCA-style federated clustering round (Ghosh et al. 2020).
+    """@brief One IFCA-style clustered federated learning round (Ghosh et al. 2020).
 
-    Each particle evaluates every cluster's broadcast model θ_k against
-    its own data (distance + directional alignment to target_k) and
-    picks the cluster with the lowest loss. After assignment, each
-    cluster aggregates its members' models with the existing
-    age-adaptive blend.
+    Steps: (1) broadcast a confidence-weighted model theta_k per cluster; (2) each
+    agent re-assigns to the cluster whose theta_k gives the lowest loss (argmin),
+    subject to migration hysteresis; (3) aggregate members toward theta_k with an
+    age-adaptive blend; (4) rescue stuck stragglers; (5) after a cooldown, possibly
+    @b merge redundant/tiny clusters or @b split an incoherent one. A fresh KMeans
+    is fit at the end purely to preserve the @c .n_clusters / @c .inertia_ contract
+    that the logger reads — IFCA itself does not need it.
 
-    `kmeans_model` is retained in the signature for backward compat with
-    callers that read `.n_clusters` and `.inertia_`. We fit a fresh
-    KMeans on identity features at the end purely to keep that contract.
+    @param particles List of all Particle agents; cluster_id and model mutated in place.
+    @param kmeans_model Previous KMeans (read for @c .n_clusters; re-fit and returned).
+    @param cluster_targets List of (x, y) spatial targets, one per cluster.
+    @param cluster_colors dict cluster_id -> RGB (key -1 reserved for unassigned).
+    @param cluster_ages dict cluster_id -> age in rounds (drives the blend ratio).
+    @param cooldown_counter Rounds remaining before another split/merge may fire.
+    @return 8-tuple (transfers, kmeans_model, cluster_targets, cluster_colors,
+        cluster_ages, num_clusters, event, cooldown_counter), where @c transfers maps
+        (src, dst) -> migration count and @c event is None, 'split', or ('merge', dropped_id).
     """
     if not particles:
         return {}, kmeans_model, cluster_targets, cluster_colors, cluster_ages, kmeans_model.n_clusters, None, cooldown_counter
@@ -791,16 +878,13 @@ def instantiateGroup(
     frame: Tuple[Tuple[int, int], Tuple[int, int]],
     target_idx: int
     ) -> List[Particle]:
-    """Method to instantiate a group of particles
+    """@brief Instantiate a group of agents spawned uniformly within a frame.
 
-    Args:
-        num     (int):                                      The number          of particles in the group
-        c       (tuple):                                    The color           of the group
-        frame   (Tuple[Tuple[int, int], Tuple[int, int]]):  The cordinate frame for the group to spawn in
-        target_pos (Tuple[int, int]):                       The hidden target   for this group
-
-    Returns:
-        group   List[Particle]:                             The list    of particles        in the group
+    @param num Number of particles to create.
+    @param c RGB colour tuple for the group.
+    @param frame Spawn box ((x_min, x_max), (y_min, y_max)).
+    @param target_idx Index of the cluster target this group initially chases.
+    @return List[Particle] the newly created agents.
     """
     random.seed()
     group = []
@@ -824,6 +908,11 @@ CLUSTER_PALETTE = [
 ]
 
 def _pick_unused_color(used_colors):
+    """@brief Pick the first palette colour not already in use (for a new cluster).
+
+    @param used_colors Set/collection of RGB tuples currently assigned.
+    @return RGB tuple — an unused palette colour, or grey if the palette is exhausted.
+    """
     for c in CLUSTER_PALETTE:
         if c not in used_colors:
             return c

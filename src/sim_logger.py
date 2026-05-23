@@ -1,5 +1,5 @@
-"""
-sim_logger.py — Logging and visualisation for the CFL simulation.
+"""@file sim_logger.py
+@brief Per-round CSV/JSONL logging and matplotlib visualisation for the CFL simulation.
 
 Usage (in game.py):
     from src.sim_logger import SimLogger
@@ -64,8 +64,7 @@ def _delta_arrow(current: float, previous: float, threshold: float = 0.005) -> s
 # ──────────────────────────────────────────────────────────────────────────────
 
 class SimLogger:
-    """
-    Records per-round statistics to disk and generates matplotlib plots.
+    """@brief Records per-round statistics to disk and generates matplotlib plots.
 
     Files written to `log_dir/run_<timestamp>/`:
         rounds.csv          — one row per CFL round, aggregate metrics
@@ -81,9 +80,29 @@ class SimLogger:
         "peer_alignment", "rounds_stable", "local_loss", "drift_velocity",
     ]
 
-    def __init__(self, log_dir: str = "logs") -> None:
-        self.run_dir = os.path.join(log_dir, f"run_{_ts()}")
+    def __init__(
+        self,
+        log_dir: str = "logs",
+        tags: str = "",
+        cfl_enabled: bool = True,
+        attraction_enabled: bool = True,
+    ) -> None:
+        """@brief Create a timestamped run directory and open all CSV/JSONL/text writers.
+
+        @param log_dir Parent directory for run folders.
+        @param tags Optional suffix tag for the run directory name (e.g. "cfl_emergent").
+        @param cfl_enabled Whether federation is on (recorded in the plot labels).
+        @param attraction_enabled Whether emergent forces are on (recorded in the plot labels).
+        """
+        suffix = f"_{tags}" if tags else ""
+        self.run_dir = os.path.join(log_dir, f"run_{_ts()}{suffix}")
         _ensure_dir(self.run_dir)
+        self.cfl_enabled       = cfl_enabled
+        self.attraction_enabled = attraction_enabled
+        self._config_label = (
+            f"CFL: {'ON' if cfl_enabled else 'OFF'}  |  "
+            f"Emergent: {'ON' if attraction_enabled else 'OFF'}"
+        )
 
         # ── open CSV writers ──────────────────────────────────────────────────
         self._rounds_fh        = open(os.path.join(self.run_dir, "rounds.csv"),        "w", newline="")
@@ -148,7 +167,19 @@ class SimLogger:
         event: Optional[str],
         num_clusters: int,
     ) -> None:
-        """Call once per CFL round, right after run_cfl_round() returns."""
+        """@brief Record one round to all CSVs and the in-memory plotting history.
+
+        Call once per round, right after run_cfl_round() returns.
+
+        @param round_num 1-based round index.
+        @param particles List of all Particle agents (read for aggregate metrics).
+        @param kmeans Fitted KMeans (read for @c .inertia_).
+        @param cluster_targets Current per-cluster (x, y) targets.
+        @param transfers dict (src, dst) -> migration count for this round.
+        @param event None, 'split', 'merge', or 'explosion' for this round.
+        @param num_clusters Current number of clusters.
+        @return None.
+        """
 
         inertia = float(kmeans.inertia_) if hasattr(kmeans, "inertia_") else 0.0
 
@@ -245,7 +276,10 @@ class SimLogger:
         )
 
     def log_explosion(self, round_num: int) -> None:
-        """Call from trigger_explosion() so the event is timestamped."""
+        """@brief Record an explosion event so it appears as a marker in the plots.
+
+        @param round_num Round during which the explosion was triggered.
+        """
         ev = {"round": round_num, "type": "explosion"}
         self._events_fh.write(json.dumps(ev) + "\n")
         self._events_fh.flush()
@@ -253,7 +287,13 @@ class SimLogger:
         self._log(f"\n[ROUND {round_num}]  *** EXPLOSION triggered ***")
 
     def plot_all(self) -> None:
-        """Generate and save all plots. Safe to call at any time."""
+        """@brief Generate and save all PNG plots from the in-memory history.
+
+        Produces global metrics, per-cluster sizes, per-cluster health, the
+        migration heatmap (CFL only) and cohesion/divergence. Safe to call any time.
+
+        @return None — files are written into the run directory.
+        """
         if not self._history:
             print("[SimLogger] No data to plot yet.")
             return
@@ -299,35 +339,55 @@ class SimLogger:
             for spine in ax.spines.values():
                 spine.set_edgecolor("#444466")
 
+        def _disable_ax(ax, reason):
+            """Grey out a panel that is N/A for this configuration."""
+            ax.set_facecolor("#111118")
+            ax.tick_params(colors="#555566")
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#333344")
+            ax.text(0.5, 0.5, reason, transform=ax.transAxes,
+                    ha="center", va="center", color="#666677", fontsize=10, style="italic")
+
         all_cids = sorted(self._cluster_history.keys())
 
-        # FIGURE 1 -- Global metrics 2x3 grid
+        # FIGURE 1 -- Global metrics 2x3 grid (same layout for all configs)
+        # Row 0: CFL-specific (inertia / #clusters / migrations)
+        # Row 1: Always-on   (confidence / loss / peer-alignment)
         try:
             fig1, axes = plt.subplots(2, 3, figsize=(16, 9))
-            fig1.suptitle("CFL Simulation -- Global Metrics per Round", fontsize=14, fontweight="bold", color="white")
+            fig1.suptitle(
+                f"Global Metrics per Round\n{self._config_label}",
+                fontsize=13, fontweight="bold", color="white",
+            )
             fig1.patch.set_facecolor("#1a1a2e")
             for ax in axes.flat:
                 _style_ax(ax)
 
-            def _line(ax, key, label, color, ylabel=None):
+            def _line(ax, key, label, color, ylim=None):
                 vals = [r[key] for r in self._history]
                 ax.plot(rounds, vals, color=color, linewidth=1.8, label=label)
                 _mark_events(ax)
                 ax.set_xlabel("Round")
-                ax.set_ylabel(ylabel or label)
                 ax.set_title(label)
+                if ylim:
+                    ax.set_ylim(*ylim)
                 ax.legend(handles=[ax.lines[0]] + _event_legend_patches(),
                           fontsize=7, facecolor="#1a1a2e", labelcolor="white")
 
-            _line(axes[0, 0], "inertia",           "KMeans Inertia",       "#e05555", "inertia")
-            _line(axes[0, 1], "num_clusters",       "# Clusters",           "#5599dd", "clusters")
-            _line(axes[0, 2], "total_migrations",   "Migrations per Round", "#ffaa00", "migrations")
-            _line(axes[1, 0], "avg_confidence",     "Avg Confidence",       "#55bb77", "0-1")
-            _line(axes[1, 1], "avg_local_loss",     "Avg Local Loss",       "#dd7733", "0-1")
-            _line(axes[1, 2], "avg_peer_alignment", "Avg Peer Alignment",   "#9955cc", "0-1")
+            if self.cfl_enabled:
+                from matplotlib.ticker import MaxNLocator
+                _line(axes[0, 0], "inertia",         "KMeans Inertia",       "#e05555")
+                _line(axes[0, 1], "num_clusters",     "# Clusters",           "#5599dd")
+                axes[0, 1].yaxis.set_major_locator(MaxNLocator(integer=True))
+                _line(axes[0, 2], "total_migrations", "Migrations per Round", "#ffaa00")
+            else:
+                _disable_ax(axes[0, 0], "N/A — CFL disabled\n(KMeans Inertia)")
+                _disable_ax(axes[0, 1], "N/A — CFL disabled\n(# Clusters)")
+                _disable_ax(axes[0, 2], "N/A — CFL disabled\n(Migrations)")
 
-            from matplotlib.ticker import MaxNLocator
-            axes[0, 1].yaxis.set_major_locator(MaxNLocator(integer=True))
+            _line(axes[1, 0], "avg_confidence",     "Avg Confidence",     "#55bb77", ylim=(0, 1.05))
+            _line(axes[1, 1], "avg_local_loss",     "Avg Local Loss",     "#dd7733", ylim=(0, 0.5))
+            _line(axes[1, 2], "avg_peer_alignment", "Avg Peer Alignment", "#9955cc", ylim=(0, 1.05))
 
             plt.tight_layout()
             p1 = os.path.join(self.run_dir, "global_metrics.png")
@@ -344,7 +404,8 @@ class SimLogger:
             fig2, ax2 = plt.subplots(figsize=(12, 5))
             fig2.patch.set_facecolor("#1a1a2e")
             _style_ax(ax2)
-            ax2.set_title("Cluster Size Over Rounds", color="white", fontsize=12)
+            fig2.suptitle(f"Cluster Size Over Rounds\n{self._config_label}",
+                          color="white", fontsize=12, fontweight="bold")
 
             for cid in all_cids:
                 hist = self._cluster_history[cid]
@@ -356,6 +417,7 @@ class SimLogger:
             _mark_events(ax2)
             ax2.set_xlabel("Round")
             ax2.set_ylabel("# Particles")
+            ax2.set_ylim(bottom=0)
             handles, labels = ax2.get_legend_handles_labels()
             ax2.legend(handles + _event_legend_patches(),
                        labels  + ["split", "merge", "explosion"],
@@ -370,11 +432,12 @@ class SimLogger:
             print("  [FAIL] cluster_sizes.png")
             traceback.print_exc()
 
-        # FIGURE 3 -- Per-cluster confidence & loss
+        # FIGURE 3 -- Per-cluster confidence & loss (fixed [0,1] axes for comparability)
         try:
             fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
             fig3.patch.set_facecolor("#1a1a2e")
-            fig3.suptitle("Per-Cluster Model Health", color="white", fontsize=12, fontweight="bold")
+            fig3.suptitle(f"Per-Cluster Model Health\n{self._config_label}",
+                          color="white", fontsize=12, fontweight="bold")
             for ax in (ax3a, ax3b):
                 _style_ax(ax)
 
@@ -392,7 +455,7 @@ class SimLogger:
             ax3a.set_ylabel("Avg Confidence", color="white")
             ax3a.set_ylim(0, 1.05)
             ax3b.set_ylabel("Avg Local Loss", color="white")
-            ax3b.set_ylim(0, 1.05)
+            ax3b.set_ylim(0, 0.5)
             ax3b.set_xlabel("Round", color="white")
 
             for ax in (ax3a, ax3b):
@@ -411,9 +474,11 @@ class SimLogger:
             print("  [FAIL] cluster_health.png")
             traceback.print_exc()
 
-        # FIGURE 4 -- Migration heatmap
+        # FIGURE 4 -- Migration heatmap (CFL only)
         try:
-            if self._mig_matrix:
+            if not self.cfl_enabled:
+                print("  [skip] migration_heatmap.png (CFL disabled)")
+            elif self._mig_matrix:
                 all_ids = sorted({k for pair in self._mig_matrix for k in pair})
                 n = len(all_ids)
                 idx_map = {cid: i for i, cid in enumerate(all_ids)}
@@ -431,7 +496,7 @@ class SimLogger:
                 ax4.set_yticklabels([f"C{c}" for c in all_ids], color="white")
                 ax4.set_xlabel("Destination Cluster", color="white")
                 ax4.set_ylabel("Source Cluster", color="white")
-                ax4.set_title("Total Migrations (all rounds)", color="white", fontsize=11)
+                ax4.set_title(f"Total Migrations (all rounds)\n{self._config_label}", color="white", fontsize=11)
                 cbar = fig4.colorbar(im, ax=ax4)
                 cbar.ax.tick_params(colors="white")
                 cbar.set_label("# Particles", color="white")
@@ -453,16 +518,16 @@ class SimLogger:
             print("  [FAIL] migration_heatmap.png")
             traceback.print_exc()
 
-        # FIGURE 5 -- Cohesion & Divergence
+        # FIGURE 5 -- Cohesion & Divergence (fixed spatial axis for comparability)
         try:
-            has_div     = any("model_divergence" in h for cid in all_cids for h in self._cluster_history[cid])
-            has_spread  = any("spatial_spread"   in h for cid in all_cids for h in self._cluster_history[cid])
+            has_div    = any("model_divergence" in h for cid in all_cids for h in self._cluster_history[cid])
+            has_spread = any("spatial_spread"   in h for cid in all_cids for h in self._cluster_history[cid])
 
             if has_div or has_spread:
                 fig5, (ax5a, ax5b) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
                 fig5.patch.set_facecolor("#1a1a2e")
-                fig5.suptitle("Per-Cluster Cohesion & Model Divergence", color="white",
-                              fontsize=12, fontweight="bold")
+                fig5.suptitle(f"Per-Cluster Cohesion & Model Divergence\n{self._config_label}",
+                              color="white", fontsize=12, fontweight="bold")
                 for ax in (ax5a, ax5b):
                     _style_ax(ax)
 
@@ -471,8 +536,8 @@ class SimLogger:
                     color = PALETTE[cid % len(PALETTE)]
 
                     if has_div:
-                        rs  = [h["round"]            for h in hist if "model_divergence" in h]
-                        div = [h["model_divergence"]  for h in hist if "model_divergence" in h]
+                        rs  = [h["round"]           for h in hist if "model_divergence" in h]
+                        div = [h["model_divergence"] for h in hist if "model_divergence" in h]
                         if rs:
                             ax5a.plot(rs, div, color=color, linewidth=1.6,
                                       label=f"Cluster {cid}", marker=".", markersize=3)
@@ -487,7 +552,9 @@ class SimLogger:
                 _mark_events(ax5a)
                 _mark_events(ax5b)
                 ax5a.set_ylabel("Model Divergence (avg std)", color="white")
-                ax5b.set_ylabel("Spatial Spread (px, mean dist)", color="white")
+                ax5a.set_ylim(bottom=0)
+                ax5b.set_ylabel("Spatial Spread (px, mean dist from centroid)", color="white")
+                ax5b.set_ylim(0, 500)   # fixed: SIM is 1000×800, spread > 500 px is an outlier
                 ax5b.set_xlabel("Round", color="white")
 
                 for ax in (ax5a, ax5b):
@@ -511,7 +578,7 @@ class SimLogger:
     # ── teardown ──────────────────────────────────────────────────────────────
 
     def close(self) -> None:
-        """Flush all file handles, generate plots, then close."""
+        """@brief Flush all file handles, render the final plots, then close everything."""
         for fh in (self._rounds_fh, self._migrations_fh,
                    self._cluster_sizes_fh, self._events_fh, self._log_fh):
             try:

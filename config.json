@@ -1,6 +1,13 @@
 {
   "_comment_num_clusters": "Number of clusters at startup. Must be between 2 and 6. Set to null (or omit) for a random count each run.",
-  "num_clusters": null,
+  "num_clusters": 5,
+
+  "_comment_toggles": "Preconfigure simulation toggles. Both default to true if omitted.",
+  "cfl_enabled": false,
+  "attraction_enabled": false,
+
+  "_comment_max_rounds": "Stop the simulation after this many rounds (counts regardless of whether CFL is enabled). Set to null (or omit) to run indefinitely.",
+  "max_rounds": 200,
 
   "_comment_obstacles": "Obstacle layout for reproducible runs. null/omitted = 4 random obstacles. Integer N = N random obstacles. List = exact layout, each entry [x, y, r] or {\"x\":.., \"y\":.., \"r\":..}. SIM area is 1000x800.",
   "obstacles": [

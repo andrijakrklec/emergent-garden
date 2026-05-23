@@ -1,4 +1,8 @@
 
+"""@file constants.py
+@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colours.
+"""
+
 PARTICLE_DEFAULT_SPAWN_NUM = 25
 
 # --- SIMULATION AREA ---
@@ -12,16 +16,13 @@ GUI_BACKGROUND_COLOR = (30, 30, 30)
 
 # ADVANCED CONTROLS
 FRAME_RATE = 60
-SIM_STEPS_PER_FRAME = 20  # number of physics ticks per render frame (raises sim speed without changing fps)
 PARTICLE_LOSE_ENERGY = 0.98
 
 PARTICLE_FORCE_LOWER_RANGE = 1
 PARTICLE_FORCE_UPPER_RANGE = 100
 
-WALL_HEAT = 2.5 * (1 / PARTICLE_LOSE_ENERGY)
 WALL_BOUNDARY = 25
 
-PARTICLE_DEFAULT_UPDATE_TIME = 1
 PARTICLE_POWER_OF_DISTANCE = 1
 
 PARTICLE_MAX_SPEED = 60.0

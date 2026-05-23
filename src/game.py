@@ -1,3 +1,17 @@
+"""@file game.py
+@brief Simulation orchestration and the pygame GUI.
+
+Defines two cooperating halves that run on separate threads:
+  - SimulationThread — a daemon thread that owns @e all simulation state and
+    steps the physics + federation at a fixed rate, publishing immutable snapshots.
+  - Game — the main-thread pygame front-end that renders snapshots and forwards
+    user input back to the simulation through a command queue.
+
+Also holds the layered configuration loader (_load_merged_config(),
+_load_force_config()) that overlays a per-experiment config on top of the master
+config.json.
+"""
+
 import pygame
 import numpy as np
 import random
@@ -31,31 +45,63 @@ PHYSICS_HZ = 60
 # Append a trail point every N physics steps (keeps trail density frame-rate-independent)
 TRAIL_SAMPLE_EVERY = PHYSICS_HZ // FRAME_RATE  # = 10
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
 
-def _load_force_config() -> Tuple[float, float, Dict]:
-    """Load g_attract, g_repel, and optional pair_rules from config.json.
 
-    Config values are in -1 to +1 scale.
-    force_scale multiplies all of them before use
-    Defaults give the same internal values as the hardcoded fallback (-10, 25).
-    Falls back to hardcoded defaults if the file is missing or malformed.
+def _load_merged_config(config_path: str) -> dict:
+    """@brief Load master config.json, then overlay a specific config file on top.
+
+    Only keys present in the specific file overwrite master values, so a config in
+    configs/ only needs to list the settings that differ from config.json. The
+    @c pair_rules table is deep-merged so a specific file can change individual
+    pairs without repeating the whole table. Keys starting with '_' are dropped.
+
+    @param config_path Path to the per-experiment config (may equal the master path).
+    @return dict the merged configuration.
+    """
+    def _read(path: str) -> dict:
+        try:
+            with open(path, "r") as f:
+                raw = json.load(f)
+            return {k: v for k, v in raw.items() if not k.startswith("_")}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    master = _read(DEFAULT_CONFIG_PATH)
+    if os.path.abspath(config_path) == os.path.abspath(DEFAULT_CONFIG_PATH):
+        return master
+
+    override = _read(config_path)
+    if not override:
+        return master
+
+    # Deep-merge pair_rules; shallow-merge everything else
+    base_rules = master.get("pair_rules", {})
+    ovr_rules  = override.get("pair_rules", {})
+    merged = {**master, **override}
+    if base_rules or ovr_rules:
+        merged["pair_rules"] = {**base_rules, **ovr_rules}
+    return merged
+
+
+def _load_force_config(config_path: str) -> Tuple[float, float, Dict, float]:
+    """@brief Load g_attract, g_repel and the optional pair_rules from merged config.
+
+    Config force values are in a readable ~-1..+1 scale; @c force_scale multiplies
+    them into internal units before use. Falls back to hardcoded defaults if the
+    config is missing or malformed.
+
+    @param config_path Path to the per-experiment config.
+    @return tuple (g_attract, g_repel, rules, force_scale) where @c rules maps (i, j) -> float.
     """
     FALLBACK_SCALE    = 25.0
     FALLBACK_ATTRACT  = -10.0 / FALLBACK_SCALE   # = -0.4
     FALLBACK_REPEL    =  25.0 / FALLBACK_SCALE   # =  1.0
 
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            raw = json.load(f)
-        # Strip comment keys (keys starting with "_") so users can annotate the file
-        cfg = {k: v for k, v in raw.items() if not k.startswith("_")}
-    except FileNotFoundError:
+    cfg = _load_merged_config(config_path)
+    if not cfg:
         print("[config] config.json not found — using hardcoded defaults.")
-        return -10.0, 25.0, {}
-    except json.JSONDecodeError as e:
-        print(f"[config] config.json parse error: {e} — using hardcoded defaults.")
-        return -10.0, 25.0, {}
+        return -10.0, 25.0, {}, FALLBACK_SCALE
 
     scale     = float(cfg.get("force_scale", FALLBACK_SCALE))
     g_attract = float(cfg.get("g_attract",   FALLBACK_ATTRACT)) * scale
@@ -73,7 +119,7 @@ def _load_force_config() -> Tuple[float, float, Dict]:
     print(f"[config] Loaded from config.json — force_scale={scale}, "
           f"g_attract={g_attract:.2f}, g_repel={g_repel:.2f}, "
           f"{len(rules)} pair rule(s)")
-    return g_attract, g_repel, rules
+    return g_attract, g_repel, rules, scale
 
 
 CLUSTER_PALETTE = [
@@ -88,7 +134,13 @@ CLUSTER_PALETTE = [
 
 @dataclass
 class SimSnapshot:
-    """Lightweight read-only view of sim state, safe to hand to the GUI thread."""
+    """@brief Immutable, read-only view of simulation state handed to the GUI thread.
+
+    Built once per physics step under a lock so the renderer never touches live
+    mutable state. Holds rendering geometry (particles, targets, trails, obstacles),
+    cluster metadata, the current force rules, the live toggles, and rolling metric
+    histories for the dashboard.
+    """
     particles: list          # [(x, y, radius, color), ...]
     cluster_targets: list    # [(x, y), ...]
     cluster_colors: dict
@@ -99,7 +151,9 @@ class SimSnapshot:
     cluster_stats: dict      # {cluster_id: count}
     g_attract: float
     g_repel: float
+    force_scale: float       # config multiplier (internal value = config value * force_scale)
     rules: dict              # {(i,j): float}
+    particle_inner_targets: list   # [(tx, ty), ...] parallel to particles — each particle's own target
     cfl_enabled: bool
     attraction_enabled: bool
     avg_loss: float
@@ -109,11 +163,23 @@ class SimSnapshot:
 
 
 class SimulationThread(threading.Thread):
-    """Owns all simulation state. Runs physics at PHYSICS_HZ in a daemon thread."""
+    """@brief Owns all simulation state; runs physics + federation in a daemon thread.
 
-    def __init__(self, cmd_queue: queue.Queue):
+    Steps the cognitive and physical domains at @c PHYSICS_HZ, fires an IFCA
+    federation round every @c cluster_update_interval steps, drains GUI commands
+    from a queue, and publishes an immutable SimSnapshot each step. All state
+    mutation happens here so the GUI thread stays read-only.
+    """
+
+    def __init__(self, cmd_queue: queue.Queue, config_path: str = DEFAULT_CONFIG_PATH):
+        """@brief Construct the simulation thread and initialise all state from config.
+
+        @param cmd_queue Thread-safe queue the GUI uses to send commands (toggles, edits, detonate).
+        @param config_path Path to the configuration file to load.
+        """
         super().__init__(daemon=True, name="SimThread")
         self.cmd_queue = cmd_queue
+        self.config_path = config_path
         self._stop_event = threading.Event()
         self._snapshot_lock = threading.Lock()
         self._snapshot: Optional[SimSnapshot] = None
@@ -125,14 +191,14 @@ class SimulationThread(threading.Thread):
 
     @staticmethod
     def _init_obstacles(spec):
-        """Resolve the `obstacles` config field into a list of (x, y, r) tuples.
+        """@brief Resolve the @c obstacles config field into a list of (x, y, r) tuples.
 
-        Accepted forms:
-          - None / missing                    → 4 random obstacles (legacy default)
-          - int N                             → N random obstacles
-          - list of [x, y, r]                 → use exactly these
-          - list of {"x":..,"y":..,"r":..}    → use exactly these
-        Out-of-bounds or malformed entries are skipped with a warning.
+        Accepted forms: None/missing -> 4 random; int N -> N random; list of
+        [x, y, r] or {"x":..,"y":..,"r":..} -> exactly those. Malformed entries are
+        skipped with a warning.
+
+        @param spec The raw @c obstacles value from the config.
+        @return list of (x, y, radius) obstacle tuples.
         """
         def _random_set(n):
             return [
@@ -174,20 +240,23 @@ class SimulationThread(threading.Thread):
         return out
 
     def _init_sim(self):
-        _cfg = {}
-        try:
-            with open(CONFIG_PATH) as f:
-                _cfg = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
-            _nc = _cfg.get("num_clusters")
-            if isinstance(_nc, int) and MIN_CLUSTERS <= _nc <= MAX_CLUSTERS:
-                self.num_clusters = _nc
-                print(f"[config] num_clusters={self.num_clusters} (from config.json)")
-            else:
-                self.num_clusters = random.randint(MIN_CLUSTERS, MAX_CLUSTERS)
-                if _nc is not None:
-                    print(f"[config] num_clusters={_nc!r} out of range [{MIN_CLUSTERS},{MAX_CLUSTERS}] — using random ({self.num_clusters})")
-        except Exception:
+        """@brief Build the initial world from config: clusters, agents, obstacles, forces, logger.
+
+        Spawns one populated group per cluster when @c num_clusters is configured
+        (skipping the initial CFL round), or five randomly-assigned groups settled by
+        one CFL round otherwise. Also seeds targets, trails, colours and the SimLogger.
+        """
+        _cfg = _load_merged_config(self.config_path)
+        _nc = _cfg.get("num_clusters")
+        if isinstance(_nc, int) and MIN_CLUSTERS <= _nc <= MAX_CLUSTERS:
+            self.num_clusters = _nc
+            _nc_configured = True
+            print(f"[config] num_clusters={self.num_clusters} (from config)")
+        else:
             self.num_clusters = random.randint(MIN_CLUSTERS, MAX_CLUSTERS)
+            _nc_configured = False
+            if _nc is not None:
+                print(f"[config] num_clusters={_nc!r} out of range [{MIN_CLUSTERS},{MAX_CLUSTERS}] — using random ({self.num_clusters})")
         D = WALL_BOUNDARY * 4
         self.cluster_targets = [
             (random.randint(D, SIM_WIDTH - D), random.randint(D, SIM_HEIGHT - D))
@@ -196,7 +265,6 @@ class SimulationThread(threading.Thread):
 
         self.cooldown_counter = 0
         self.cluster_ages = {i: BLEND_MATURITY_ROUNDS for i in range(self.num_clusters)}
-        self.target_angles = [random.uniform(0, 2 * math.pi) for _ in range(self.num_clusters)]
 
         trail_maxlen = FRAME_RATE * 3  # ~3 seconds of history at FRAME_RATE sample rate
         self.target_trails: List[deque] = [deque(maxlen=trail_maxlen) for _ in range(self.num_clusters)]
@@ -206,51 +274,82 @@ class SimulationThread(threading.Thread):
         self.cluster_colors[-1] = (80, 80, 80)
 
         self.all_particles = []
-        for _ in range(5):
-            t_idx = random.randint(0, self.num_clusters - 1)
-            self.all_particles.extend(instantiateGroup(
-                num=PARTICLE_DEFAULT_SPAWN_NUM,
-                c=PARTICLE_COLOR_WHITE,
-                frame=PARTICLE_DEFAULT_SPAWN_FRAME,
-                target_idx=t_idx,
-            ))
+        if _nc_configured:
+            # Spawn one group per cluster so every cluster starts populated.
+            # Skip the initial CFL round — the configured count is authoritative.
+            for i in range(self.num_clusters):
+                group = instantiateGroup(
+                    num=PARTICLE_DEFAULT_SPAWN_NUM,
+                    c=PARTICLE_COLOR_WHITE,
+                    frame=PARTICLE_DEFAULT_SPAWN_FRAME,
+                    target_idx=i,
+                )
+                for p in group:
+                    p.cluster_id = i
+                self.all_particles.extend(group)
+        else:
+            # Random cluster count: spawn 5 groups with random assignment and
+            # let the initial CFL round settle the actual cluster structure.
+            for _ in range(5):
+                t_idx = random.randint(0, self.num_clusters - 1)
+                self.all_particles.extend(instantiateGroup(
+                    num=PARTICLE_DEFAULT_SPAWN_NUM,
+                    c=PARTICLE_COLOR_WHITE,
+                    frame=PARTICLE_DEFAULT_SPAWN_FRAME,
+                    target_idx=t_idx,
+                ))
 
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
         self.cluster_update_interval = 200  # physics steps between CFL rounds
         self.cluster_update_timer = 0
         self.cfl_round_counter = 0
-        self.cfl_enabled = True
-        self.attraction_enabled = True
+        self.cfl_enabled        = bool(_cfg.get("cfl_enabled",        True))
+        self.attraction_enabled = bool(_cfg.get("attraction_enabled", True))
+        _mr = _cfg.get("max_rounds")
+        self.max_rounds = int(_mr) if isinstance(_mr, (int, float)) and _mr > 0 else None
         self._avg_loss_history: deque = deque(maxlen=60)
         self._avg_conf_history: deque = deque(maxlen=60)
 
         self.obstacles = self._init_obstacles(_cfg.get("obstacles"))
 
-        self.g_attract, self.g_repel, self.rules = _load_force_config()
+        self.g_attract, self.g_repel, self.rules, self.force_scale = _load_force_config(self.config_path)
 
-        print(f"\n{'=' * 60}")
-        print(f"INIT: Starting Simulation with {len(self.all_particles)} particles.")
-        print(f"{'=' * 60}\n")
+        if not _nc_configured:
+            _, self.kmeans, self.cluster_targets, self.cluster_colors, \
+                self.cluster_ages, self.num_clusters, _, self.cooldown_counter = run_cfl_round(
+                self.all_particles, self.kmeans, self.cluster_targets,
+                self.cluster_colors, self.cluster_ages, self.cooldown_counter,
+            )
+            max_idx = len(self.cluster_targets) - 1
+            for p in self.all_particles:
+                if p.cluster_id >= 0:
+                    p.target_idx = min(p.cluster_id, max_idx)
 
-        _, self.kmeans, self.cluster_targets, self.cluster_colors, \
-            self.cluster_ages, self.num_clusters, _, self.cooldown_counter = run_cfl_round(
-            self.all_particles, self.kmeans, self.cluster_targets,
-            self.cluster_colors, self.cluster_ages, self.cooldown_counter,
-        )
         self._sync_rules()
 
-        max_idx = len(self.cluster_targets) - 1
-        for p in self.all_particles:
-            if p.cluster_id >= 0:
-                p.target_idx = min(p.cluster_id, max_idx)
+        print(f"\n{'=' * 60}")
+        print(f"INIT: Starting Simulation with {len(self.all_particles)} particles "
+              f"in {self.num_clusters} clusters.")
+        print(f"{'=' * 60}\n")
 
-        self.logger = SimLogger(log_dir="logs")
+        _tags = []
+        if "cfl_enabled" in _cfg and _cfg["cfl_enabled"]:
+            _tags.append("cfl")
+        if "attraction_enabled" in _cfg and _cfg["attraction_enabled"]:
+            _tags.append("emergent")
+        self.logger = SimLogger(
+            log_dir="logs",
+            tags="_".join(_tags),
+            cfl_enabled=self.cfl_enabled,
+            attraction_enabled=self.attraction_enabled,
+        )
 
     # ------------------------------------------------------------------
     # Rule helpers
     # ------------------------------------------------------------------
 
     def _sync_rules(self):
+        """@brief Add missing default rules for current cluster pairs and drop stale ones."""
         current_keys = set()
         for i in range(self.num_clusters):
             for j in range(i, self.num_clusters):
@@ -262,9 +361,18 @@ class SimulationThread(threading.Thread):
             del self.rules[k]
 
     def set_rule(self, i, j, val):
-        self.rules[(min(i, j), max(i, j))] = max(-50.0, min(50.0, val))
+        """@brief Set the internal-scale force for cluster pair (i, j).
+
+        @p val is stored in internal units (config value * force_scale). The GUI
+        validates the config-scale input before scaling, so no clamp is applied
+        here — clamping would corrupt reset-to-default, whose defaults are scaled too.
+
+        @param i First cluster id. @param j Second cluster id. @param val Internal-scale force.
+        """
+        self.rules[(min(i, j), max(i, j))] = float(val)
 
     def reset_rule(self, i, j):
+        """@brief Reset the (i, j) force to the default (g_attract if i==j else g_repel)."""
         self.set_rule(i, j, self.g_attract if i == j else self.g_repel)
 
     # ------------------------------------------------------------------
@@ -272,6 +380,10 @@ class SimulationThread(threading.Thread):
     # ------------------------------------------------------------------
 
     def _handle_cmd(self, cmd):
+        """@brief Dispatch one GUI command (detonate, set/reset rule, toggle CFL/attraction).
+
+        @param cmd dict with a @c 'type' key plus type-specific fields.
+        """
         t = cmd['type']
         if t == 'detonate':
             self._trigger_explosion()
@@ -287,6 +399,7 @@ class SimulationThread(threading.Thread):
             print(f"\n[ATTRACTION] Inter-particle forces {'ENABLED' if self.attraction_enabled else 'DISABLED'}")
 
     def _trigger_explosion(self):
+        """@brief Scatter every agent and randomise its model — a re-convergence stress test."""
         for p in self.all_particles:
             p.vx = random.uniform(-80, 80)
             p.vy = random.uniform(-80, 80)
@@ -305,37 +418,63 @@ class SimulationThread(threading.Thread):
     # ------------------------------------------------------------------
 
     def _step(self, dt: float):
+        """@brief Advance the simulation by one physics tick.
+
+        Drifts each agent's inner target, runs local_train() for every agent,
+        fires an IFCA run_cfl_round() when the round timer elapses (handling
+        split/merge bookkeeping, metrics and logging), then applies
+        update_peer_alignment() and apply_physics_rules() and samples trails.
+
+        @param dt Integration timestep in seconds.
+        """
         _DRIFT_SPEED  = 0.10
         _DRIFT_MARGIN = WALL_BOUNDARY * 4
 
-        # Sync angle list length with targets
-        while len(self.target_angles) < len(self.cluster_targets):
-            self.target_angles.append(random.uniform(0, 2 * math.pi))
-        while len(self.target_angles) > len(self.cluster_targets):
-            self.target_angles.pop()
-
-        # Drift targets
-        for i, (tx, ty) in enumerate(self.cluster_targets):
-            self.target_angles[i] += random.uniform(-0.01, 0.01)
-            nx = tx + _DRIFT_SPEED * math.cos(self.target_angles[i])
-            ny = ty + _DRIFT_SPEED * math.sin(self.target_angles[i])
+        # Drift each particle's own inner target independently
+        for p in self.all_particles:
+            p._target_angle += random.uniform(-0.01, 0.01)
+            nx = p._target_x + _DRIFT_SPEED * math.cos(p._target_angle)
+            ny = p._target_y + _DRIFT_SPEED * math.sin(p._target_angle)
             if nx < _DRIFT_MARGIN or nx > SIM_WIDTH - _DRIFT_MARGIN:
-                self.target_angles[i] = math.pi - self.target_angles[i]
+                p._target_angle = math.pi - p._target_angle
                 nx = max(_DRIFT_MARGIN, min(SIM_WIDTH - _DRIFT_MARGIN, nx))
             if ny < _DRIFT_MARGIN or ny > SIM_HEIGHT - _DRIFT_MARGIN:
-                self.target_angles[i] = -self.target_angles[i]
+                p._target_angle = -p._target_angle
                 ny = max(_DRIFT_MARGIN, min(SIM_HEIGHT - _DRIFT_MARGIN, ny))
-            self.cluster_targets[i] = (nx, ny)
+            p._target_x = nx
+            p._target_y = ny
 
-        # Local training
+        # Recompute cluster targets as the average of each cluster's inner targets
+        sums: Dict[int, List[float]] = {}
+        counts: Dict[int, int] = {}
         for p in self.all_particles:
-            local_train(p, self.cluster_targets[p.target_idx], self.obstacles, learning_rate=0.02)
+            cid = p.cluster_id if p.cluster_id >= 0 else p.target_idx
+            if cid not in sums:
+                sums[cid] = [0.0, 0.0]
+                counts[cid] = 0
+            sums[cid][0] += p._target_x
+            sums[cid][1] += p._target_y
+            counts[cid] += 1
+        for i in range(len(self.cluster_targets)):
+            if i in sums:
+                n = counts[i]
+                self.cluster_targets[i] = (sums[i][0] / n, sums[i][1] / n)
 
-        # CFL round — fires every cluster_update_interval physics steps.
+        # Local training — each particle chases its own inner target
+        for p in self.all_particles:
+            local_train(p, (p._target_x, p._target_y), self.obstacles, learning_rate=0.02)
+
+        # Simulation round — fires every cluster_update_interval physics steps.
         self.cluster_update_timer += 1
         if self.cluster_update_timer >= self.cluster_update_interval:
             self.cluster_update_timer = 0
             self.cfl_round_counter += 1
+
+            if self.max_rounds is not None and self.cfl_round_counter >= self.max_rounds:
+                print(f"\n[SIM] max_rounds={self.max_rounds} reached — stopping simulation.")
+                self._stop_event.set()
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                return
 
             # Track metrics every round regardless of whether CFL is enabled,
             # so the sparkline shows the contrast when the mode is toggled.
@@ -361,16 +500,11 @@ class SimulationThread(threading.Thread):
                 trail_maxlen = self.target_trails[0].maxlen if self.target_trails else FRAME_RATE * 3
 
                 if event_type == 'split':
-                    self.target_angles.append(random.uniform(0, 2 * math.pi))
                     self.target_trails.append(deque(maxlen=trail_maxlen))
                     self._sync_rules()
                     print(f"   > SPLIT — now {self.num_clusters} clusters")
                 elif event_type == 'merge':
                     drop_idx = event[1]
-                    if drop_idx < len(self.target_angles):
-                        del self.target_angles[drop_idx]
-                    elif self.target_angles:
-                        self.target_angles.pop()
                     if drop_idx < len(self.target_trails):
                         del self.target_trails[drop_idx]
                     elif self.target_trails:
@@ -404,10 +538,20 @@ class SimulationThread(threading.Thread):
                     event=event_type,
                     num_clusters=self.num_clusters,
                 )
-                if self.cfl_round_counter % 20 == 0:
-                    self.logger.plot_all()
             else:
                 print(f"\n[ROUND {self.cfl_round_counter}] (CFL disabled — individual learning only)")
+                self.logger.log_round(
+                    round_num=self.cfl_round_counter,
+                    particles=self.all_particles,
+                    kmeans=self.kmeans,
+                    cluster_targets=self.cluster_targets,
+                    transfers={},
+                    event=None,
+                    num_clusters=self.num_clusters,
+                )
+
+            if self.cfl_round_counter % 20 == 0:
+                self.logger.plot_all()
 
         update_peer_alignment(self.all_particles)
         apply_physics_rules(
@@ -432,10 +576,15 @@ class SimulationThread(threading.Thread):
     # ------------------------------------------------------------------
 
     def _build_snapshot(self) -> SimSnapshot:
+        """@brief Assemble an immutable SimSnapshot of current state for the GUI.
+
+        @return SimSnapshot a deep-enough copy that the renderer can read lock-free.
+        """
         particle_data = [
             (p.x, p.y, p.r, self.cluster_colors.get(p.cluster_id, (255, 255, 255)))
             for p in self.all_particles
         ]
+        particle_target_indices = [(p._target_x, p._target_y) for p in self.all_particles]
         stats: Dict[int, int] = {}
         for p in self.all_particles:
             stats[p.cluster_id] = stats.get(p.cluster_id, 0) + 1
@@ -448,6 +597,7 @@ class SimulationThread(threading.Thread):
 
         return SimSnapshot(
             particles=particle_data,
+            particle_inner_targets=particle_target_indices,
             cluster_targets=list(self.cluster_targets),
             cluster_colors=dict(self.cluster_colors),
             obstacles=list(self.obstacles),
@@ -457,6 +607,7 @@ class SimulationThread(threading.Thread):
             cluster_stats=stats,
             g_attract=self.g_attract,
             g_repel=self.g_repel,
+            force_scale=self.force_scale,
             rules=dict(self.rules),
             cfl_enabled=self.cfl_enabled,
             attraction_enabled=self.attraction_enabled,
@@ -467,6 +618,7 @@ class SimulationThread(threading.Thread):
         )
 
     def get_snapshot(self) -> Optional[SimSnapshot]:
+        """@brief Return the latest published snapshot (thread-safe), or None before the first step."""
         with self._snapshot_lock:
             return self._snapshot
 
@@ -475,33 +627,37 @@ class SimulationThread(threading.Thread):
     # ------------------------------------------------------------------
 
     def run(self):
+        """@brief Thread entry point: drain commands, step, publish, and pace to PHYSICS_HZ until stopped."""
         dt = 1.0 / FRAME_RATE  # physics uses same dt the old code used per-step
         period = 1.0 / PHYSICS_HZ
 
-        while not self._stop_event.is_set():
-            t0 = time.perf_counter()
+        try:
+            while not self._stop_event.is_set():
+                t0 = time.perf_counter()
 
-            # Drain commands (all of them before the next physics step)
-            while True:
-                try:
-                    self._handle_cmd(self.cmd_queue.get_nowait())
-                except queue.Empty:
-                    break
+                # Drain commands (all of them before the next physics step)
+                while True:
+                    try:
+                        self._handle_cmd(self.cmd_queue.get_nowait())
+                    except queue.Empty:
+                        break
 
-            self._step(dt)
+                self._step(dt)
 
-            snap = self._build_snapshot()
-            with self._snapshot_lock:
-                self._snapshot = snap
+                snap = self._build_snapshot()
+                with self._snapshot_lock:
+                    self._snapshot = snap
 
-            elapsed = time.perf_counter() - t0
-            remaining = period - elapsed
-            if remaining > 0.0005:
-                time.sleep(remaining)
+                elapsed = time.perf_counter() - t0
+                remaining = period - elapsed
+                if remaining > 0.0005:
+                    time.sleep(remaining)
+        finally:
+            self.logger.close()
 
     def stop(self):
+        """@brief Signal the thread to stop after the current step (triggers logger teardown)."""
         self._stop_event.set()
-        self.logger.close()
 
 
 # ==============================================================================
@@ -509,9 +665,18 @@ class SimulationThread(threading.Thread):
 # ==============================================================================
 
 class Game:
-    """Handles pygame events and rendering. All simulation state lives in SimulationThread."""
+    """@brief Main-thread pygame front-end: renders snapshots and forwards input.
 
-    def __init__(self):
+    Holds no simulation state of its own — it reads immutable SimSnapshot
+    objects from the SimulationThread and posts user actions (rule edits,
+    toggles, detonate) back through the command queue.
+    """
+
+    def __init__(self, config_path: str = DEFAULT_CONFIG_PATH):
+        """@brief Initialise pygame, build the window/widgets, and start the simulation thread.
+
+        @param config_path Path to the configuration file passed through to the simulation.
+        """
         pygame.init()
         pygame.key.set_repeat(350, 50)
         self.game_running = True
@@ -542,10 +707,11 @@ class Game:
         # Toggle button rects — updated each draw call
         self.cfl_toggle_rect        = pygame.Rect(0, 0, 1, 1)
         self.attraction_toggle_rect = pygame.Rect(0, 0, 1, 1)
+        self.show_target_lines      = False
 
         # Start simulation thread
         self.cmd_queue = queue.Queue()
-        self.sim = SimulationThread(self.cmd_queue)
+        self.sim = SimulationThread(self.cmd_queue, config_path=config_path)
         self.sim.start()
 
         # Wait for first snapshot so we have valid state before drawing
@@ -557,18 +723,31 @@ class Game:
     # ------------------------------------------------------------------
 
     def _commit_edit(self, snap: SimSnapshot):
+        """@brief Commit the in-progress rule-cell edit to the simulation, if any.
+
+        @param snap Current snapshot (for context); the parsed value is sent via the command queue.
+        """
         if self.editing_cell is None:
             return
         try:
-            val = float(self.edit_buffer)
+            # edit_buffer holds a config-scale value (e.g. 0.65); convert to the
+            # internal scale the simulator uses before sending it across.
+            cfg_val = max(-5.0, min(5.0, float(self.edit_buffer)))
+            scale = (snap.force_scale if snap else 1.0) or 1.0
             i, j = self.editing_cell
-            self.cmd_queue.put({'type': 'set_rule', 'i': i, 'j': j, 'val': val})
+            self.cmd_queue.put({'type': 'set_rule', 'i': i, 'j': j, 'val': cfg_val * scale})
         except (ValueError, TypeError):
             pass
         self.editing_cell = None
         self.edit_buffer = ""
 
     def _current_rule_val(self, canonical, snap: SimSnapshot) -> float:
+        """@brief Look up the current force for a canonical (i, j) pair, falling back to defaults.
+
+        @param canonical (min(i,j), max(i,j)) cluster-pair key.
+        @param snap Current snapshot holding the rules table and defaults.
+        @return float the effective force for that pair.
+        """
         i, j = canonical
         return snap.rules.get(canonical, snap.g_attract if i == j else snap.g_repel)
 
@@ -577,6 +756,10 @@ class Game:
     # ------------------------------------------------------------------
 
     def draw_gui(self, snap: SimSnapshot):
+        """@brief Render the right-hand dashboard: clusters, toggles, metrics, rules matrix, detonate.
+
+        @param snap Snapshot to render from.
+        """
         sidebar_rect = pygame.Rect(SIM_WIDTH, 0, GUI_WIDTH, SIM_HEIGHT)
         pygame.draw.rect(self.screen, GUI_BACKGROUND_COLOR, sidebar_rect)
         pygame.draw.line(self.screen, (100, 100, 100), (SIM_WIDTH, 0), (SIM_WIDTH, SIM_HEIGHT), 2)
@@ -585,11 +768,13 @@ class Game:
         y = 24
         line_h = 34
 
-        self.screen.blit(self.font_header.render("CFL Dashboard", True, (255, 255, 255)), (start_x, y))
+        title = "CFL Dashboard" if snap.cfl_enabled else "Simulation Metrics"
+        self.screen.blit(self.font_header.render(title, True, (255, 255, 255)), (start_x, y))
         y += 46
 
-        self.screen.blit(self.font.render(f"Round: {snap.cfl_round_counter}", True, (200, 200, 200)), (start_x, y))
-        y += int(line_h * 1.4)
+        if snap.cfl_enabled:
+            self.screen.blit(self.font.render(f"Round: {snap.cfl_round_counter}", True, (200, 200, 200)), (start_x, y))
+            y += int(line_h * 1.4)
 
         self.screen.blit(self.font.render("Clusters:", True, (255, 255, 255)), (start_x, y))
         y += 22
@@ -632,7 +817,7 @@ class Game:
             f"Attraction (emergent): {'ON' if snap.attraction_enabled else 'OFF'}",
             snap.attraction_enabled,
         )
-        y += 42
+        y += 40
 
         # --- Live metric bars (loss + confidence) ---
         bar_total_w = GUI_WIDTH - 100
@@ -691,6 +876,12 @@ class Game:
             y += 28
 
             N = snap.num_clusters
+            # Matrix shows config-scale values (config value = internal / force_scale),
+            # so what you edit matches config.json. Colour range adapts to the data.
+            scale = snap.force_scale or 1.0
+            _rng = [abs(snap.g_attract) / scale, abs(snap.g_repel) / scale] + \
+                   [abs(v) / scale for v in snap.rules.values()]
+            color_range = max([1.0] + _rng)
             header_col_w = 20
             cell_w = min(52, (GUI_WIDTH - 48 - header_col_w) // max(1, N))
             cell_h = 26
@@ -708,17 +899,17 @@ class Game:
                 for j in range(N):
                     canonical = (min(i, j), max(i, j))
                     is_editing = self.editing_cell == canonical
-                    val = (
+                    disp = (
                         (float(self.edit_buffer) if self.edit_buffer not in ('', '-', '.') else 0.0)
                         if is_editing
-                        else self._current_rule_val(canonical, snap)
+                        else self._current_rule_val(canonical, snap) / scale
                     )
 
                     cx = mx + header_col_w + j * cell_w
                     cell_rect = pygame.Rect(cx + 1, y + 1, cell_w - 2, cell_h - 2)
                     new_rects[(i, j)] = cell_rect
 
-                    t = max(-1.0, min(1.0, val / 50.0))
+                    t = max(-1.0, min(1.0, disp / color_range))
                     if t < 0:
                         r, g_c, b = int(30 + (1 + t) * 30), int(30 + (1 + t) * 30), int(30 + (-t) * 200)
                     else:
@@ -729,7 +920,7 @@ class Game:
                     pygame.draw.rect(self.screen, cell_bg, cell_rect)
                     pygame.draw.rect(self.screen, border_col, cell_rect, 1)
 
-                    display_str = (self.edit_buffer + "|") if is_editing else f"{val:.0f}"
+                    display_str = (self.edit_buffer + "|") if is_editing else f"{disp:.2f}"
                     val_surf = self.font_small.render(display_str, True, (230, 230, 230))
                     self.screen.blit(val_surf, val_surf.get_rect(center=cell_rect.center))
 
@@ -748,6 +939,10 @@ class Game:
         self.screen.blit(self.bomb_text, self.bomb_text.get_rect(center=self.bomb_rect.center))
 
     def _draw_sim(self, snap: SimSnapshot):
+        """@brief Render the left-hand simulation area: obstacles, target trails, agents.
+
+        @param snap Snapshot to render from.
+        """
         self.screen.fill(BACK_BLACK)
         pygame.draw.rect(self.screen, (20, 20, 20), (0, 0, SIM_WIDTH, SIM_HEIGHT))
 
@@ -766,15 +961,29 @@ class Game:
             pygame.draw.line(self.screen, color, (itx - 15, ity), (itx + 15, ity), 1)
             pygame.draw.line(self.screen, color, (itx, ity - 15), (itx, ity + 15), 1)
 
+        if self.show_target_lines:
+            for (px, py, pr, pc), (tx, ty) in zip(snap.particles, snap.particle_inner_targets):
+                faded = (pc[0] // 3, pc[1] // 3, pc[2] // 3)
+                pygame.draw.line(self.screen, faded, (int(px), int(py)), (int(tx), int(ty)), 1)
+
         for px, py, pr, pc in snap.particles:
             pygame.draw.circle(self.screen, pc, (int(px), int(py)), pr)
+
+        label = f"[T] Target lines: {'ON' if self.show_target_lines else 'OFF'}"
+        hint = self.font_small.render(label, True, (80, 80, 80))
+        self.screen.blit(hint, (8, SIM_HEIGHT - hint.get_height() - 6))
 
     # ------------------------------------------------------------------
     # Main loop
     # ------------------------------------------------------------------
 
     def run(self):
+        """@brief Main GUI loop: poll input, render the latest snapshot, and cap to FRAME_RATE."""
         while self.game_running:
+            if self.sim._stop_event.is_set():
+                self.game_running = False
+                break
+
             snap = self.sim.get_snapshot()
 
             for event in pygame.event.get():
@@ -809,27 +1018,30 @@ class Game:
                             else:
                                 self._commit_edit(snap)
                                 self.editing_cell = hit
-                                self.edit_buffer = f"{self._current_rule_val(hit, snap):.0f}"
+                                self.edit_buffer = f"{self._current_rule_val(hit, snap) / (snap.force_scale or 1.0):.2f}"
                                 self.last_click_cell = hit
                                 self.last_click_time = now
                         else:
                             self._commit_edit(snap)
                             self.last_click_cell = None
 
-                elif event.type == pygame.KEYDOWN and self.editing_cell is not None:
-                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                        self._commit_edit(snap)
-                    elif event.key == pygame.K_ESCAPE:
-                        self.editing_cell = None
-                        self.edit_buffer = ""
-                    elif event.key == pygame.K_BACKSPACE:
-                        self.edit_buffer = self.edit_buffer[:-1]
-                    elif event.unicode in "0123456789":
-                        self.edit_buffer += event.unicode
-                    elif event.unicode == "-" and self.edit_buffer == "":
-                        self.edit_buffer = "-"
-                    elif event.unicode == "." and "." not in self.edit_buffer:
-                        self.edit_buffer += "."
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_t and self.editing_cell is None:
+                        self.show_target_lines = not self.show_target_lines
+                    elif self.editing_cell is not None:
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            self._commit_edit(snap)
+                        elif event.key == pygame.K_ESCAPE:
+                            self.editing_cell = None
+                            self.edit_buffer = ""
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.edit_buffer = self.edit_buffer[:-1]
+                        elif event.unicode in "0123456789":
+                            self.edit_buffer += event.unicode
+                        elif event.unicode == "-" and self.edit_buffer == "":
+                            self.edit_buffer = "-"
+                        elif event.unicode == "." and "." not in self.edit_buffer:
+                            self.edit_buffer += "."
 
             if snap is not None:
                 self._draw_sim(snap)
@@ -839,5 +1051,7 @@ class Game:
             self.clock.tick(FRAME_RATE)
 
     def quit(self):
+        """@brief Stop the simulation thread, close pygame, and wait for logger teardown/plots."""
         self.sim.stop()
         pygame.quit()
+        self.sim.join(timeout=60)  # wait for logger.close() / plot_all(), but don't hang forever
