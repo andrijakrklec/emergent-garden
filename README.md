@@ -328,23 +328,28 @@ on exit (or every 20 rounds), renders its plots there.
 
 ## Configuration reference
 
-Configs are **merged**: the specific file in `configs/` is overlaid on top of the
-master [`config.json`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json), so an experiment file only needs to list the
-keys it changes. `pair_rules` are deep-merged per entry
-(`_load_merged_config`, [`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)). Keys beginning with
-`_comment_` are ignored and used for inline documentation.
+Configuration is resolved in **three merged layers**, each overriding the previous
+(`_load_merged_config`, [`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)):
+
+1. **master** [`config.json`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json) — globals plus the `emergent_preset` selector;
+2. the **emergent preset** it names (`configs/emergent/<name>.json`) — the attract/repel personality;
+3. the per-run **`--config`** file (used by `run_all.py`) — e.g. the ablation toggles.
+
+`pair_rules` are deep-merged per entry, so any layer can change individual pairs
+without repeating the whole table. Keys beginning with `_` are treated as comments.
 
 | Key | Type | Meaning |
 |-----|------|---------|
-| `num_clusters` | int 2–6 \| null | Initial cluster count. `null` = random each run. When set, one populated group spawns per cluster and the initial CFL round is skipped. |
+| `emergent_preset` | str \| null | Name of a preset in `configs/emergent/` to overlay (e.g. `"orbits"`). `null` = use this file's own `g_*`/`pair_rules`/`num_clusters` (or built-in defaults). |
 | `cfl_enabled` | bool | Enable federation rounds (the cognitive coupling). |
-| `attraction_enabled` | bool | Enable inter-agent attraction/repulsion (the emergent physical coupling). Emergency anti-stacking repulsion remains on regardless. |
+| `attraction_enabled` | bool | Enable inter-agent attraction/repulsion (the emergent physical coupling). Must be **true** to see a preset. Emergency anti-stacking repulsion stays on regardless. |
 | `max_rounds` | int \| null | Stop after this many rounds. `null` = run indefinitely. |
 | `obstacles` | null \| int \| list | `null` = 4 random; int N = N random; list of `[x,y,r]` or `{"x","y","r"}` = exact layout. SIM area is 1000×800. |
-| `force_scale` | float | Multiplies all `g` values before use, so config values can stay in a readable ≈ −1…+1 range. |
-| `g_attract` | float | Default **intra-cluster** force (negative = attract). |
-| `g_repel` | float | Default **inter-cluster** force (positive = repel). |
-| `pair_rules` | object | Per-pair overrides keyed `"i-j"` (i ≤ j). Diagonal `i-i` = intra-cluster, off-diagonal = cross-cluster. Same scale as `g_*`. |
+| `force_scale` | float | Multiplies all `g` values before use, so preset/config values stay in a readable ≈ −1…+1 range. |
+| `num_clusters` | int 2–6 \| null | Initial cluster count (usually set by the preset). `null` = random each run. |
+| `g_attract` | float | Default **intra-cluster** force, negative = attract (usually set by the preset). |
+| `g_repel` | float | Default **inter-cluster** force, positive = repel (usually set by the preset). |
+| `pair_rules` | object | Per-pair overrides keyed `"i-j"` (i ≤ j); diagonal = intra-cluster, off-diagonal = cross-cluster (usually set by the preset). |
 
 The four shipped experiment files in [`configs/`](https://github.com/andrijakrklec/emergent-garden/tree/HEAD/configs) each set only
 `cfl_enabled` and `attraction_enabled`:
@@ -355,6 +360,24 @@ The four shipped experiment files in [`configs/`](https://github.com/andrijakrkl
 | `configs/cfl_on__emergent_off.json`  | ✅ | ❌ |
 | `configs/cfl_off__emergent_on.json`  | ❌ | ✅ |
 | `configs/cfl_off__emergent_off.json` | ❌ | ❌ |
+
+### Emergent presets
+
+Pick a behaviour by name with `"emergent_preset"` in [`config.json`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json); each
+file in [`configs/emergent/`](https://github.com/andrijakrklec/emergent-garden/tree/HEAD/configs/emergent) sets `num_clusters`, `g_attract`,
+`g_repel` and `pair_rules`. Set `attraction_enabled: true` to see them.
+
+| Preset | Clusters | Behaviour |
+|--------|----------|-----------|
+| `default` | 5 | Original hand-tuned mixed matrix (mixed cohesion / spread). |
+| `cells`   | 5 | Tight cohesive blobs that strongly repel each other — territorial cells. |
+| `swarm`   | 3 | Loosely cohesive groups that also attract each other — one drifting super-swarm. |
+| `orbits`  | 4 | Central core (cluster 0) attracts satellites that repel each other — ring / orbit. |
+| `gas`     | 4 | Clusters self-repel and repel each other — particles disperse like a gas. |
+| `chains`  | 5 | Only adjacent clusters attract (0-1-2-3-4) — linked strands. |
+
+Add your own by dropping a `configs/emergent/<name>.json` with the same fields and
+setting `emergent_preset` to `<name>`.
 
 ---
 

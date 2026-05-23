@@ -49,15 +49,17 @@ DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "
 
 
 def _load_merged_config(config_path: str) -> dict:
-    """@brief Load master config.json, then overlay a specific config file on top.
+    """@brief Resolve the layered configuration: master + emergent preset + per-run override.
 
-    Only keys present in the specific file overwrite master values, so a config in
-    configs/ only needs to list the settings that differ from config.json. The
-    @c pair_rules table is deep-merged so a specific file can change individual
-    pairs without repeating the whole table. Keys starting with '_' are dropped.
+    Three layers are merged, each overriding the previous:
+      1. the master config.json (globals plus the @c emergent_preset selector);
+      2. the emergent preset it names (configs/emergent/<name>.json), if any;
+      3. the per-run --config file (used by run_all.py), if different from master.
+    The @c pair_rules table is deep-merged at each step; comment keys (those
+    starting with '_') are dropped.
 
-    @param config_path Path to the per-experiment config (may equal the master path).
-    @return dict the merged configuration.
+    @param config_path Path to the per-run config (may equal the master path).
+    @return dict the fully merged configuration.
     """
     def _read(path: str) -> dict:
         try:
@@ -67,21 +69,37 @@ def _load_merged_config(config_path: str) -> dict:
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-    master = _read(DEFAULT_CONFIG_PATH)
-    if os.path.abspath(config_path) == os.path.abspath(DEFAULT_CONFIG_PATH):
-        return master
+    def _deep_merge(base: dict, override: dict) -> dict:
+        """Shallow-merge two configs, but deep-merge their pair_rules tables."""
+        merged = {**base, **override}
+        base_rules = base.get("pair_rules", {})
+        ovr_rules  = override.get("pair_rules", {})
+        if base_rules or ovr_rules:
+            merged["pair_rules"] = {**base_rules, **ovr_rules}
+        return merged
 
+    cfg = _read(DEFAULT_CONFIG_PATH)
+
+    # Overlay the named emergent preset so switching `emergent_preset` in
+    # config.json swaps the whole attract/repel personality in one place.
+    preset_name = cfg.get("emergent_preset")
+    if preset_name:
+        preset_path = os.path.join(
+            os.path.dirname(DEFAULT_CONFIG_PATH), "configs", "emergent", f"{preset_name}.json"
+        )
+        preset = _read(preset_path)
+        if preset:
+            cfg = _deep_merge(cfg, preset)
+        else:
+            print(f"[config] emergent_preset {preset_name!r} not found at {preset_path} — ignoring.")
+
+    # Overlay the per-run --config file (run_all.py ablation), if any.
+    if os.path.abspath(config_path) == os.path.abspath(DEFAULT_CONFIG_PATH):
+        return cfg
     override = _read(config_path)
     if not override:
-        return master
-
-    # Deep-merge pair_rules; shallow-merge everything else
-    base_rules = master.get("pair_rules", {})
-    ovr_rules  = override.get("pair_rules", {})
-    merged = {**master, **override}
-    if base_rules or ovr_rules:
-        merged["pair_rules"] = {**base_rules, **ovr_rules}
-    return merged
+        return cfg
+    return _deep_merge(cfg, override)
 
 
 def _load_force_config(config_path: str) -> Tuple[float, float, Dict, float]:
