@@ -86,16 +86,22 @@ class SimLogger:
         tags: str = "",
         cfl_enabled: bool = True,
         attraction_enabled: bool = True,
+        run_name: Optional[str] = None,
     ) -> None:
-        """@brief Create a timestamped run directory and open all CSV/JSONL/text writers.
+        """@brief Create a run directory and open all CSV/JSONL/text writers.
 
         @param log_dir Parent directory for run folders.
-        @param tags Optional suffix tag for the run directory name (e.g. "cfl_emergent").
+        @param tags Optional suffix tag for the auto-generated run directory name (e.g. "cfl_emergent").
         @param cfl_enabled Whether federation is on (recorded in the plot labels).
         @param attraction_enabled Whether emergent forces are on (recorded in the plot labels).
+        @param run_name Explicit run-folder name; when given it overrides the
+            "run_<timestamp>_<tags>" default (used for repeated/batch runs).
         """
-        suffix = f"_{tags}" if tags else ""
-        self.run_dir = os.path.join(log_dir, f"run_{_ts()}{suffix}")
+        if run_name:
+            self.run_dir = os.path.join(log_dir, run_name)
+        else:
+            suffix = f"_{tags}" if tags else ""
+            self.run_dir = os.path.join(log_dir, f"run_{_ts()}{suffix}")
         _ensure_dir(self.run_dir)
         self.cfl_enabled       = cfl_enabled
         self.attraction_enabled = attraction_enabled

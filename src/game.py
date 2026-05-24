@@ -48,7 +48,7 @@ TRAIL_SAMPLE_EVERY = PHYSICS_HZ // FRAME_RATE  # = 10
 DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
 
 
-def _load_merged_config(config_path: str) -> dict:
+def _load_merged_config(config_path: str, preset_override: Optional[str] = None) -> dict:
     """@brief Resolve the layered configuration: master + emergent preset + per-run override.
 
     Three layers are merged, each overriding the previous:
@@ -59,6 +59,8 @@ def _load_merged_config(config_path: str) -> dict:
     starting with '_') are dropped.
 
     @param config_path Path to the per-run config (may equal the master path).
+    @param preset_override If given, overrides the master's @c emergent_preset selector
+        (used by the --preset CLI flag to batch over presets).
     @return dict the fully merged configuration.
     """
     def _read(path: str) -> dict:
@@ -82,7 +84,7 @@ def _load_merged_config(config_path: str) -> dict:
 
     # Overlay the named emergent preset so switching `emergent_preset` in
     # config.json swaps the whole attract/repel personality in one place.
-    preset_name = cfg.get("emergent_preset")
+    preset_name = preset_override if preset_override is not None else cfg.get("emergent_preset")
     if preset_name:
         preset_path = os.path.join(
             os.path.dirname(DEFAULT_CONFIG_PATH), "configs", "emergent", f"{preset_name}.json"
@@ -102,7 +104,7 @@ def _load_merged_config(config_path: str) -> dict:
     return _deep_merge(cfg, override)
 
 
-def _load_force_config(config_path: str) -> Tuple[float, float, Dict, float]:
+def _load_force_config(config_path: str, preset_override: Optional[str] = None) -> Tuple[float, float, Dict, float]:
     """@brief Load g_attract, g_repel and the optional pair_rules from merged config.
 
     Config force values are in a readable ~-1..+1 scale; @c force_scale multiplies
@@ -116,7 +118,7 @@ def _load_force_config(config_path: str) -> Tuple[float, float, Dict, float]:
     FALLBACK_ATTRACT  = -10.0 / FALLBACK_SCALE   # = -0.4
     FALLBACK_REPEL    =  25.0 / FALLBACK_SCALE   # =  1.0
 
-    cfg = _load_merged_config(config_path)
+    cfg = _load_merged_config(config_path, preset_override)
     if not cfg:
         print("[config] config.json not found — using hardcoded defaults.")
         return -10.0, 25.0, {}, FALLBACK_SCALE
@@ -189,15 +191,22 @@ class SimulationThread(threading.Thread):
     mutation happens here so the GUI thread stays read-only.
     """
 
-    def __init__(self, cmd_queue: queue.Queue, config_path: str = DEFAULT_CONFIG_PATH):
+    def __init__(self, cmd_queue: queue.Queue, config_path: str = DEFAULT_CONFIG_PATH,
+                 log_dir: str = "logs", run_name: Optional[str] = None, preset: Optional[str] = None):
         """@brief Construct the simulation thread and initialise all state from config.
 
         @param cmd_queue Thread-safe queue the GUI uses to send commands (toggles, edits, detonate).
         @param config_path Path to the configuration file to load.
+        @param log_dir Base directory for the run's log folder.
+        @param run_name Explicit run-folder name (overrides the timestamped default); for batch runs.
+        @param preset Overrides the emergent_preset from config.json (for batch runs over presets).
         """
         super().__init__(daemon=True, name="SimThread")
         self.cmd_queue = cmd_queue
         self.config_path = config_path
+        self.log_dir = log_dir
+        self.run_name = run_name
+        self.preset = preset
         self._stop_event = threading.Event()
         self._snapshot_lock = threading.Lock()
         self._snapshot: Optional[SimSnapshot] = None
@@ -264,7 +273,7 @@ class SimulationThread(threading.Thread):
         (skipping the initial CFL round), or five randomly-assigned groups settled by
         one CFL round otherwise. Also seeds targets, trails, colours and the SimLogger.
         """
-        _cfg = _load_merged_config(self.config_path)
+        _cfg = _load_merged_config(self.config_path, self.preset)
         _nc = _cfg.get("num_clusters")
         if isinstance(_nc, int) and MIN_CLUSTERS <= _nc <= MAX_CLUSTERS:
             self.num_clusters = _nc
@@ -330,7 +339,7 @@ class SimulationThread(threading.Thread):
 
         self.obstacles = self._init_obstacles(_cfg.get("obstacles"))
 
-        self.g_attract, self.g_repel, self.rules, self.force_scale = _load_force_config(self.config_path)
+        self.g_attract, self.g_repel, self.rules, self.force_scale = _load_force_config(self.config_path, self.preset)
 
         if not _nc_configured:
             _, self.kmeans, self.cluster_targets, self.cluster_colors, \
@@ -356,10 +365,11 @@ class SimulationThread(threading.Thread):
         if "attraction_enabled" in _cfg and _cfg["attraction_enabled"]:
             _tags.append("emergent")
         self.logger = SimLogger(
-            log_dir="logs",
+            log_dir=self.log_dir,
             tags="_".join(_tags),
             cfl_enabled=self.cfl_enabled,
             attraction_enabled=self.attraction_enabled,
+            run_name=self.run_name,
         )
 
     # ------------------------------------------------------------------
@@ -690,11 +700,18 @@ class Game:
     toggles, detonate) back through the command queue.
     """
 
-    def __init__(self, config_path: str = DEFAULT_CONFIG_PATH):
+    def __init__(self, config_path: str = DEFAULT_CONFIG_PATH,
+                 log_dir: str = "logs", run_name: Optional[str] = None, preset: Optional[str] = None):
         """@brief Initialise pygame, build the window/widgets, and start the simulation thread.
 
         @param config_path Path to the configuration file passed through to the simulation.
+        @param log_dir Base directory for the run's log folder.
+        @param run_name Explicit run-folder name (overrides the timestamped default); for batch runs.
+        @param preset Overrides the emergent_preset from config.json (for batch runs over presets).
         """
+        self._log_dir = log_dir
+        self._run_name = run_name
+        self._preset = preset
         pygame.init()
         pygame.key.set_repeat(350, 50)
         self.game_running = True
@@ -729,7 +746,8 @@ class Game:
 
         # Start simulation thread
         self.cmd_queue = queue.Queue()
-        self.sim = SimulationThread(self.cmd_queue, config_path=config_path)
+        self.sim = SimulationThread(self.cmd_queue, config_path=config_path,
+                                    log_dir=self._log_dir, run_name=self._run_name, preset=self._preset)
         self.sim.start()
 
         # Wait for first snapshot so we have valid state before drawing
