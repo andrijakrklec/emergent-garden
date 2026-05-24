@@ -22,5 +22,6 @@ var searchData=
   ['particles_19',['particles',['../classgame_1_1SimSnapshot.html#a2b4a68f1df9c8098d49f1f821311135c',1,'game::SimSnapshot']]],
   ['physics_5fhz_20',['PHYSICS_HZ',['../namespacegame.html#a23d1c968758ce14b637de25463a1e7b4',1,'game']]],
   ['plot_5fall_21',['plot_all',['../classsim__logger_1_1SimLogger.html#a9b54c1c71a23886bfc002012407e9332',1,'sim_logger::SimLogger']]],
-  ['procs_22',['procs',['../namespacerun__all.html#ae8873c261b4b16d0fdaf9dd2ff06b948',1,'run_all']]]
+  ['preset_22',['preset',['../classgame_1_1SimulationThread.html#a47035c428f05787d900769c60391740e',1,'game::SimulationThread']]],
+  ['procs_23',['procs',['../namespacerun__all.html#ae8873c261b4b16d0fdaf9dd2ff06b948',1,'run_all']]]
 ];

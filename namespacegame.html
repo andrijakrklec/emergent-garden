@@ -92,12 +92,12 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ae009586999f7febc0b74b43df8483709"><td class="memItemLeft" align="right" valign="top">dict&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#ae009586999f7febc0b74b43df8483709">_load_merged_config</a> (str config_path)</td></tr>
-<tr class="memdesc:ae009586999f7febc0b74b43df8483709"><td class="mdescLeft">&#160;</td><td class="mdescRight">Resolve the layered configuration: master + emergent preset + per-run override.  <br /></td></tr>
-<tr class="separator:ae009586999f7febc0b74b43df8483709"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac8585af8ef54dff6614f3559e00260ae"><td class="memItemLeft" align="right" valign="top">Tuple[float, float, Dict, float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#ac8585af8ef54dff6614f3559e00260ae">_load_force_config</a> (str config_path)</td></tr>
-<tr class="memdesc:ac8585af8ef54dff6614f3559e00260ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load g_attract, g_repel and the optional pair_rules from merged config.  <br /></td></tr>
-<tr class="separator:ac8585af8ef54dff6614f3559e00260ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4739bdb7f1ee3f24f3c1a5aaa26a267d"><td class="memItemLeft" align="right" valign="top">dict&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#a4739bdb7f1ee3f24f3c1a5aaa26a267d">_load_merged_config</a> (str config_path, Optional[str] preset_override=None)</td></tr>
+<tr class="memdesc:a4739bdb7f1ee3f24f3c1a5aaa26a267d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Resolve the layered configuration: master + emergent preset + per-run override.  <br /></td></tr>
+<tr class="separator:a4739bdb7f1ee3f24f3c1a5aaa26a267d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8eca15338464e2407a61645f7481ef6"><td class="memItemLeft" align="right" valign="top">Tuple[float, float, Dict, float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#ae8eca15338464e2407a61645f7481ef6">_load_force_config</a> (str config_path, Optional[str] preset_override=None)</td></tr>
+<tr class="memdesc:ae8eca15338464e2407a61645f7481ef6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load g_attract, g_repel and the optional pair_rules from merged config.  <br /></td></tr>
+<tr class="separator:ae8eca15338464e2407a61645f7481ef6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
@@ -111,8 +111,8 @@ Variables</h2></td></tr>
 <tr class="separator:aa26bca45a080558a66b458fa277b58a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="ae009586999f7febc0b74b43df8483709" name="ae009586999f7febc0b74b43df8483709"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae009586999f7febc0b74b43df8483709">&#9670;&#160;</a></span>_load_merged_config()</h2>
+<a id="a4739bdb7f1ee3f24f3c1a5aaa26a267d" name="a4739bdb7f1ee3f24f3c1a5aaa26a267d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4739bdb7f1ee3f24f3c1a5aaa26a267d">&#9670;&#160;</a></span>_load_merged_config()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -124,8 +124,18 @@ Variables</h2></td></tr>
           <td class="memname"> dict game._load_merged_config </td>
           <td>(</td>
           <td class="paramtype">str&#160;</td>
-          <td class="paramname"><em>config_path</em></td><td>)</td>
+          <td class="paramname"><em>config_path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">Optional[str] &#160;</td>
+          <td class="paramname"><em>preset_override</em> = <code>None</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -144,14 +154,16 @@ The @c pair_rules table is deep-merged at each step; comment keys (those
 starting with '_') are dropped.
 
 @param config_path Path to the per-run config (may equal the master path).
+@param preset_override If given, overrides the master's @c emergent_preset selector
+    (used by the --preset CLI flag to batch over presets).
 @return dict the fully merged configuration.
 </pre> 
 <p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00051">51</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
-<a id="ac8585af8ef54dff6614f3559e00260ae" name="ac8585af8ef54dff6614f3559e00260ae"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac8585af8ef54dff6614f3559e00260ae">&#9670;&#160;</a></span>_load_force_config()</h2>
+<a id="ae8eca15338464e2407a61645f7481ef6" name="ae8eca15338464e2407a61645f7481ef6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8eca15338464e2407a61645f7481ef6">&#9670;&#160;</a></span>_load_force_config()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -163,8 +175,18 @@ starting with '_') are dropped.
           <td class="memname"> Tuple[float, float, Dict, float] game._load_force_config </td>
           <td>(</td>
           <td class="paramtype">str&#160;</td>
-          <td class="paramname"><em>config_path</em></td><td>)</td>
+          <td class="paramname"><em>config_path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">Optional[str] &#160;</td>
+          <td class="paramname"><em>preset_override</em> = <code>None</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -182,7 +204,7 @@ config is missing or malformed.
 @param config_path Path to the per-experiment config.
 @return tuple (g_attract, g_repel, rules, force_scale) where @c rules maps (i, j) -&gt; float.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00105">105</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00107">107</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -255,7 +277,7 @@ config is missing or malformed.
 <div class="line"><span class="lineno">    7</span>    (0, 255, 255),   <span class="comment"># cyan — 6th slot for MAX_CLUSTERS=6</span></div>
 <div class="line"><span class="lineno">    8</span>]</div>
 </div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00143">143</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00145">145</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>

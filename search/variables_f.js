@@ -18,5 +18,6 @@ var searchData=
   ['particle_5fpower_5fof_5fdistance_15',['PARTICLE_POWER_OF_DISTANCE',['../namespaceconstants.html#a6450d76ca7f3826d7dea819a0aef2f47',1,'constants']]],
   ['particles_16',['particles',['../classgame_1_1SimSnapshot.html#a2b4a68f1df9c8098d49f1f821311135c',1,'game::SimSnapshot']]],
   ['physics_5fhz_17',['PHYSICS_HZ',['../namespacegame.html#a23d1c968758ce14b637de25463a1e7b4',1,'game']]],
-  ['procs_18',['procs',['../namespacerun__all.html#ae8873c261b4b16d0fdaf9dd2ff06b948',1,'run_all']]]
+  ['preset_18',['preset',['../classgame_1_1SimulationThread.html#a47035c428f05787d900769c60391740e',1,'game::SimulationThread']]],
+  ['procs_19',['procs',['../namespacerun__all.html#ae8873c261b4b16d0fdaf9dd2ff06b948',1,'run_all']]]
 ];

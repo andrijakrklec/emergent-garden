@@ -85,11 +85,16 @@ $(function() {
 <div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="keywordflow">if</span> __name__ == <span class="stringliteral">&#39;__main__&#39;</span>:</div>
 <div class="line"><a id="l00011" name="l00011"></a><span class="lineno"><a class="line" href="namespacemain.html#a4a3a4faca810c886d28e523e2091aba6">   11</a></span>    parser = argparse.ArgumentParser()</div>
 <div class="line"><a id="l00012" name="l00012"></a><span class="lineno"><a class="line" href="namespacemain.html#ad78f5fadc8e48752b92395e99eec4033">   12</a></span>    parser.add_argument(<span class="stringliteral">&quot;--config&quot;</span>, default=<span class="stringliteral">&quot;config.json&quot;</span>, help=<span class="stringliteral">&quot;Path to config file&quot;</span>)</div>
-<div class="line"><a id="l00013" name="l00013"></a><span class="lineno"><a class="line" href="namespacemain.html#ae00261d14ccd0f9d8f83ca72c9f27f69">   13</a></span>    args = parser.parse_args()</div>
-<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span> </div>
-<div class="line"><a id="l00015" name="l00015"></a><span class="lineno"><a class="line" href="namespacemain.html#a985e3c29b31be4d98ae6c4e41e667da9">   15</a></span>    game = Game(config_path=args.config)</div>
-<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span>    game.run()</div>
-<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span>    game.quit()</div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span>    parser.add_argument(<span class="stringliteral">&quot;--log-dir&quot;</span>, default=<span class="stringliteral">&quot;logs&quot;</span>, help=<span class="stringliteral">&quot;Base directory for log output&quot;</span>)</div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span>    parser.add_argument(<span class="stringliteral">&quot;--run-name&quot;</span>, default=<span class="keywordtype">None</span>,</div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span>                        help=<span class="stringliteral">&quot;Explicit run-folder name (overrides the timestamped default); for batch runs&quot;</span>)</div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span>    parser.add_argument(<span class="stringliteral">&quot;--preset&quot;</span>, default=<span class="keywordtype">None</span>,</div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span>                        help=<span class="stringliteral">&quot;Override emergent_preset from config.json (name of a file in configs/emergent/)&quot;</span>)</div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="namespacemain.html#ae00261d14ccd0f9d8f83ca72c9f27f69">   18</a></span>    args = parser.parse_args()</div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span> </div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno"><a class="line" href="namespacemain.html#a985e3c29b31be4d98ae6c4e41e667da9">   20</a></span>    game = Game(config_path=args.config, log_dir=args.log_dir, run_name=args.run_name, preset=args.preset)</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span>    game.run()</div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span>    game.quit()</div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

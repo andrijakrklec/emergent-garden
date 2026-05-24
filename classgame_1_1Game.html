@@ -78,6 +78,7 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classgame_1_1Game-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">game.Game Class Reference</div></div>
 </div><!--header-->
@@ -88,9 +89,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:add68af2dec9ec8396aa302ca92b1a765"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#add68af2dec9ec8396aa302ca92b1a765">__init__</a> (self, str config_path=<a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a>)</td></tr>
-<tr class="memdesc:add68af2dec9ec8396aa302ca92b1a765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialise pygame, build the window/widgets, and start the simulation thread.  <br /></td></tr>
-<tr class="separator:add68af2dec9ec8396aa302ca92b1a765"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2305d3710d5468214cd2ed26f27854c"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#af2305d3710d5468214cd2ed26f27854c">__init__</a> (self, str config_path=<a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a>, str log_dir=&quot;logs&quot;, Optional[str] run_name=None, Optional[str] preset=None)</td></tr>
+<tr class="memdesc:af2305d3710d5468214cd2ed26f27854c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialise pygame, build the window/widgets, and start the simulation thread.  <br /></td></tr>
+<tr class="separator:af2305d3710d5468214cd2ed26f27854c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9efcd814916e537a284d49db026dae22"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#a9efcd814916e537a284d49db026dae22">draw_gui</a> (self, <a class="el" href="classgame_1_1SimSnapshot.html">SimSnapshot</a> snap)</td></tr>
 <tr class="memdesc:a9efcd814916e537a284d49db026dae22"><td class="mdescLeft">&#160;</td><td class="mdescRight">Render the right-hand dashboard: clusters, toggles, metrics, rules matrix, detonate.  <br /></td></tr>
 <tr class="separator:a9efcd814916e537a284d49db026dae22"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -153,6 +154,15 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a3766d087c6db5653d435796b523f8011"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#a3766d087c6db5653d435796b523f8011">_draw_sim</a> (self, <a class="el" href="classgame_1_1SimSnapshot.html">SimSnapshot</a> snap)</td></tr>
 <tr class="memdesc:a3766d087c6db5653d435796b523f8011"><td class="mdescLeft">&#160;</td><td class="mdescRight">Render the left-hand simulation area: obstacles, target trails, agents.  <br /></td></tr>
 <tr class="separator:a3766d087c6db5653d435796b523f8011"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
+<tr class="memitem:a1604381adb54d93bdfba9fe2aa0d8fc1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#a1604381adb54d93bdfba9fe2aa0d8fc1">_log_dir</a></td></tr>
+<tr class="separator:a1604381adb54d93bdfba9fe2aa0d8fc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e40107735eee34c5b4a1f68b567dab0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#a9e40107735eee34c5b4a1f68b567dab0">_run_name</a></td></tr>
+<tr class="separator:a9e40107735eee34c5b4a1f68b567dab0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d31133e74dc1fbe91e04ac3821f4651"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html#a5d31133e74dc1fbe91e04ac3821f4651">_preset</a></td></tr>
+<tr class="separator:a5d31133e74dc1fbe91e04ac3821f4651"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Main-thread pygame front-end: renders snapshots and forwards input. </p>
@@ -160,10 +170,10 @@ Protected Member Functions</h2></td></tr>
 objects from the SimulationThread and posts user actions (rule edits,
 toggles, detonate) back through the command queue.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00685">685</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00695">695</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="add68af2dec9ec8396aa302ca92b1a765" name="add68af2dec9ec8396aa302ca92b1a765"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#add68af2dec9ec8396aa302ca92b1a765">&#9670;&#160;</a></span>__init__()</h2>
+<a id="af2305d3710d5468214cd2ed26f27854c" name="af2305d3710d5468214cd2ed26f27854c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af2305d3710d5468214cd2ed26f27854c">&#9670;&#160;</a></span>__init__()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -178,7 +188,25 @@ toggles, detonate) back through the command queue.
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">str &#160;</td>
-          <td class="paramname"><em>config_path</em> = <code><a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a></code>&#160;</td>
+          <td class="paramname"><em>config_path</em> = <code><a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a></code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">str &#160;</td>
+          <td class="paramname"><em>log_dir</em> = <code>&quot;logs&quot;</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Optional[str] &#160;</td>
+          <td class="paramname"><em>run_name</em> = <code>None</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Optional[str] &#160;</td>
+          <td class="paramname"><em>preset</em> = <code>None</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -190,8 +218,11 @@ toggles, detonate) back through the command queue.
 
 <p>Initialise pygame, build the window/widgets, and start the simulation thread. </p>
 <pre class="fragment">    @param config_path Path to the configuration file passed through to the simulation.
+    @param log_dir Base directory for the run's log folder.
+    @param run_name Explicit run-folder name (overrides the timestamped default); for batch runs.
+    @param preset Overrides the emergent_preset from config.json (for batch runs over presets).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00693">693</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00703">703</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -233,7 +264,7 @@ toggles, detonate) back through the command queue.
 <p>Commit the in-progress rule-cell edit to the simulation, if any. </p>
 <pre class="fragment">    @param snap Current snapshot (for context); the parsed value is sent via the command queue.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00743">743</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00761">761</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -282,7 +313,7 @@ toggles, detonate) back through the command queue.
     @param snap Current snapshot holding the rules table and defaults.
     @return float the effective force for that pair.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00762">762</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00780">780</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -315,7 +346,7 @@ toggles, detonate) back through the command queue.
 <p>Render the right-hand dashboard: clusters, toggles, metrics, rules matrix, detonate. </p>
 <pre class="fragment">    @param snap Snapshot to render from.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00776">776</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00794">794</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -356,7 +387,7 @@ toggles, detonate) back through the command queue.
 <p>Render the left-hand simulation area: obstacles, target trails, agents. </p>
 <pre class="fragment">    @param snap Snapshot to render from.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00959">959</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00977">977</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -378,7 +409,7 @@ toggles, detonate) back through the command queue.
 
 <p>Main GUI loop: poll input, render the latest snapshot, and cap to FRAME_RATE. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00998">998</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l01016">1016</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -400,11 +431,83 @@ toggles, detonate) back through the command queue.
 
 <p>Stop the simulation thread, close pygame, and wait for logger teardown/plots. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l01071">1071</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l01089">1089</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a1604381adb54d93bdfba9fe2aa0d8fc1" name="a1604381adb54d93bdfba9fe2aa0d8fc1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1604381adb54d93bdfba9fe2aa0d8fc1">&#9670;&#160;</a></span>_log_dir</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">game.Game._log_dir</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00712">712</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+
+</div>
+</div>
+<a id="a9e40107735eee34c5b4a1f68b567dab0" name="a9e40107735eee34c5b4a1f68b567dab0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e40107735eee34c5b4a1f68b567dab0">&#9670;&#160;</a></span>_run_name</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">game.Game._run_name</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00713">713</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+
+</div>
+</div>
+<a id="a5d31133e74dc1fbe91e04ac3821f4651" name="a5d31133e74dc1fbe91e04ac3821f4651"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d31133e74dc1fbe91e04ac3821f4651">&#9670;&#160;</a></span>_preset</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">game.Game._preset</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00714">714</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+
+</div>
+</div>
 <a id="ac28e291944381a77fa9e21a2173fbcb2" name="ac28e291944381a77fa9e21a2173fbcb2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac28e291944381a77fa9e21a2173fbcb2">&#9670;&#160;</a></span>game_running</h2>
 
@@ -417,7 +520,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00700">700</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00717">717</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -433,7 +536,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00701">701</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00718">718</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -449,7 +552,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00703">703</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00720">720</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -465,7 +568,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00704">704</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00721">721</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -481,7 +584,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00705">705</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00722">722</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -497,7 +600,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00707">707</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00724">724</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -513,7 +616,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00714">714</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00731">731</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -529,7 +632,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00715">715</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00732">732</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -545,7 +648,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00716">716</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00733">733</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -561,7 +664,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00720">720</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00737">737</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -577,7 +680,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00721">721</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00738">738</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -593,7 +696,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00722">722</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00739">739</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -609,7 +712,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00723">723</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00740">740</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -625,7 +728,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00726">726</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00743">743</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -641,7 +744,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00727">727</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00744">744</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -657,7 +760,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00728">728</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00745">745</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -673,7 +776,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00731">731</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00748">748</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -689,7 +792,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00732">732</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00749">749</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -705,7 +808,7 @@ toggles, detonate) back through the command queue.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00947">947</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00965">965</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>

@@ -9,5 +9,6 @@ var searchData=
   ['run_5fall_6',['run_all',['../namespacerun__all.html',1,'']]],
   ['run_5fall_2epy_7',['run_all.py',['../run__all_8py.html',1,'']]],
   ['run_5fcfl_5fround_8',['run_cfl_round',['../namespaceparticle.html#ad2bfac9b593b3276ff750c8768d296be',1,'particle']]],
-  ['run_5fdir_9',['run_dir',['../classsim__logger_1_1SimLogger.html#a477463a8569dbe05c8bf407ac1a6f7ff',1,'sim_logger::SimLogger']]]
+  ['run_5fdir_9',['run_dir',['../classsim__logger_1_1SimLogger.html#a477463a8569dbe05c8bf407ac1a6f7ff',1,'sim_logger::SimLogger']]],
+  ['run_5fname_10',['run_name',['../classgame_1_1SimulationThread.html#a451e3d8d1967b29085a50a1300f40d0b',1,'game::SimulationThread']]]
 ];
