@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 import traceback
 from collections import defaultdict
@@ -31,6 +32,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+from src.constants import SIM_DIM
+
+# Sim diagonal — normaliser for distance-based metrics (spatial_precision,
+# local_loss's geo component).
+_MAX_DIST = math.hypot(SIM_DIM[0], SIM_DIM[1])
 
 # Must be set BEFORE pyplot is ever imported anywhere in the process.
 # Agg is a non-interactive backend that writes to files — safe alongside pygame.
@@ -57,6 +64,83 @@ def _delta_arrow(current: float, previous: float, threshold: float = 0.005) -> s
     if diff < -threshold:
         return "↓"
     return "~"
+
+
+def _cluster_purity(particles) -> Optional[float]:
+    """@brief Clustering purity of predicted @c cluster_id against ground-truth @c _true_cluster_id.
+
+    Purity = (1/N) * Σ_k max_j |{p : p.cluster_id = k} ∩ {p : p._true_cluster_id = j}|.
+
+    Standard unsupervised-clustering metric: for each predicted cluster, count
+    how many of its members share the dominant ground-truth label, sum across
+    clusters, divide by N. Headline ablation metric here — CFL aggregation
+    drives it toward 1.0 by discovering the latent bias structure, while
+    individual learning leaves @c cluster_id pinned at the random init so purity
+    hovers near 1/K.
+
+    Returns None when no particle carries a ground-truth label (legacy runs);
+    callers should treat that as N/A rather than logging a fake 1.0.
+
+    @param particles List of Particle agents.
+    @return float in [0, 1] or None.
+    """
+    if not particles:
+        return None
+    has_truth = any(getattr(p, "_true_cluster_id", -1) >= 0 for p in particles)
+    if not has_truth:
+        return None
+    counts: Dict[int, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    for p in particles:
+        true_cid = getattr(p, "_true_cluster_id", -1)
+        if true_cid < 0:
+            continue
+        counts[p.cluster_id][true_cid] += 1
+    matched = sum(max(true_counts.values()) for true_counts in counts.values())
+    return matched / len(particles)
+
+
+def _spatial_precision(particle, max_dist: float) -> float:
+    """@brief How close a particle is to its target, in [0, 1] (1 = at the target).
+
+    @c spatial_precision = 1 - dist(particle, _target) / sim_diagonal. Same scale
+    as @c direction_precision so the two metrics are visually comparable on the
+    same axes. Complements @c direction_precision: the model can be aimed
+    correctly (high dir_prec) while the body is dragged off-target by emergent
+    forces (low spatial_prec) — the two precisions decouple the cognitive and
+    physical errors.
+
+    @param particle A Particle with @c x, @c y, @c _target_x, @c _target_y.
+    @param max_dist Sim diagonal (normaliser; same one used by local_loss).
+    @return float in [0, 1].
+    """
+    dx = particle._target_x - particle.x
+    dy = particle._target_y - particle.y
+    dist = math.hypot(dx, dy)
+    return float(1.0 - min(dist / max_dist, 1.0))
+
+
+def _direction_precision(particle) -> float:
+    """@brief Cosine alignment of a particle's learned heading to the *true* (unbiased) target direction, mapped to [0, 1].
+
+    The local trainer corrupts each per-agent target direction with a persistent
+    @c _local_bias (particle.py). With federation on, IFCA aggregates members'
+    models and the random per-agent biases cancel — the learned heading approaches
+    the true direction and this metric rises. Without federation, the bias persists
+    and the metric stays low. This is the headline ablation metric: CFL vs
+    individual learning under non-IID clients.
+
+    1.0 = perfect alignment with the unbiased ideal; 0.5 = orthogonal; 0.0 = anti-aligned.
+
+    @param particle A Particle with @c x, @c y, @c _target_x, @c _target_y, @c model.
+    @return float in [0, 1].
+    """
+    tx = particle._target_x - particle.x
+    ty = particle._target_y - particle.y
+    n = math.hypot(tx, ty)
+    if n == 0.0:
+        return 1.0
+    cos_sim = particle.model[0] * (tx / n) + particle.model[1] * (ty / n)
+    return float((cos_sim + 1.0) * 0.5)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -123,6 +207,7 @@ class SimLogger:
                 "round", "num_clusters", "num_particles",
                 "inertia", "total_migrations", "event",
                 "avg_confidence", "avg_local_loss",
+                "avg_direction_precision", "avg_spatial_precision", "cluster_purity",
                 "avg_peer_alignment", "avg_obstacle_pressure",
                 "avg_drift_velocity", "avg_rounds_stable",
             ],
@@ -140,6 +225,7 @@ class SimLogger:
             fieldnames=[
                 "round", "cluster_id", "size",
                 "avg_confidence", "avg_local_loss",
+                "avg_direction_precision", "avg_spatial_precision",
                 "avg_peer_alignment", "avg_obstacle_pressure",
                 "avg_drift_velocity", "avg_rounds_stable",
                 "model_divergence", "spatial_spread",
@@ -198,6 +284,24 @@ class SimLogger:
         avg_drift       = float(np.mean(models[:, 7]))
         avg_stable      = float(np.mean(models[:, 5]))
 
+        # Direction precision: per-agent cosine alignment of learned heading to
+        # the *true* (unbiased) target direction, in [0, 1]. Headline ablation
+        # metric — rises under CFL (federation averages out non-IID biases),
+        # stays low under individual learning.
+        dir_precisions = [_direction_precision(p) for p in particles]
+        avg_dir_prec   = float(np.mean(dir_precisions)) if dir_precisions else 0.0
+
+        # Spatial precision: 1 - distance/sim_diagonal. Complements direction
+        # precision — distinguishes "model points the right way" from "particle
+        # actually arrives at the target". Emergent attraction/repulsion forces
+        # affect this without touching direction_precision.
+        spatial_precisions = [_spatial_precision(p, _MAX_DIST) for p in particles]
+        avg_spatial_prec   = float(np.mean(spatial_precisions)) if spatial_precisions else 0.0
+
+        # Cluster purity: how well predicted cluster_id matches the latent
+        # _true_cluster_id labels. None when no ground truth is set (legacy).
+        purity = _cluster_purity(particles)
+
         total_mig = sum(transfers.values()) if transfers else 0
 
         # ── write rounds.csv ─────────────────────────────────────────────────
@@ -210,6 +314,9 @@ class SimLogger:
             "event":               event or "",
             "avg_confidence":      round(avg_conf,  4),
             "avg_local_loss":      round(avg_loss,  4),
+            "avg_direction_precision": round(avg_dir_prec, 4),
+            "avg_spatial_precision":   round(avg_spatial_prec, 4),
+            "cluster_purity":      None if purity is None else round(purity, 4),
             "avg_peer_alignment":  round(avg_peer,  4),
             "avg_obstacle_pressure": round(avg_obs, 4),
             "avg_drift_velocity":  round(avg_drift, 4),
@@ -251,12 +358,17 @@ class SimLogger:
             cx, cy = xs.mean(), ys.mean()
             spatial_spread = float(np.mean(np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)))
 
+            cluster_dir_prec     = float(np.mean([_direction_precision(p) for p in members]))
+            cluster_spatial_prec = float(np.mean([_spatial_precision(p, _MAX_DIST) for p in members]))
+
             cs_row = {
                 "round":                round_num,
                 "cluster_id":           cid,
                 "size":                 len(members),
                 "avg_confidence":       round(float(np.mean(ms[:, 2])), 4),
                 "avg_local_loss":       round(float(np.mean(ms[:, 6])), 4),
+                "avg_direction_precision": round(cluster_dir_prec, 4),
+                "avg_spatial_precision":   round(cluster_spatial_prec, 4),
                 "avg_peer_alignment":   round(float(np.mean(ms[:, 4])), 4),
                 "avg_obstacle_pressure":round(float(np.mean(ms[:, 3])), 4),
                 "avg_drift_velocity":   round(float(np.mean(ms[:, 7])), 4),
@@ -278,7 +390,8 @@ class SimLogger:
 
         self._write_terminal_log(
             round_num, num_clusters, inertia, avg_conf, avg_loss,
-            avg_peer, total_mig, event, transfers, cluster_rows,
+            avg_peer, avg_dir_prec, avg_spatial_prec, purity,
+            total_mig, event, transfers, cluster_rows,
         )
 
     def log_explosion(self, round_num: int) -> None:
@@ -370,8 +483,15 @@ class SimLogger:
                 _style_ax(ax)
 
             def _line(ax, key, label, color, ylim=None):
-                vals = [r[key] for r in self._history]
-                ax.plot(rounds, vals, color=color, linewidth=1.8, label=label)
+                # Filter rounds where the metric is None — e.g. cluster_purity is
+                # None for legacy runs that lack ground-truth labels.
+                pairs = [(r, h.get(key)) for r, h in zip(rounds, self._history)
+                         if h.get(key) is not None]
+                if not pairs:
+                    _disable_ax(ax, f"N/A\n({label})")
+                    return
+                xs, ys = zip(*pairs)
+                ax.plot(xs, ys, color=color, linewidth=1.8, label=label)
                 _mark_events(ax)
                 ax.set_xlabel("Round")
                 ax.set_title(label)
@@ -380,20 +500,25 @@ class SimLogger:
                 ax.legend(handles=[ax.lines[0]] + _event_legend_patches(),
                           fontsize=7, facecolor="#1a1a2e", labelcolor="white")
 
+            # Row 0: CFL-only diagnostics. Purity, # Clusters and Migrations
+            # all depend on IFCA running — without federation they're either a
+            # flat chance line or undefined.
             if self.cfl_enabled:
                 from matplotlib.ticker import MaxNLocator
-                _line(axes[0, 0], "inertia",         "KMeans Inertia",       "#e05555")
-                _line(axes[0, 1], "num_clusters",     "# Clusters",           "#5599dd")
+                _line(axes[0, 0], "cluster_purity",   "Cluster Purity\n(cluster_id vs latent true label)", "#ffaaff", ylim=(0, 1.05))
+                _line(axes[0, 1], "num_clusters",     "# Clusters",                                        "#5599dd")
                 axes[0, 1].yaxis.set_major_locator(MaxNLocator(integer=True))
-                _line(axes[0, 2], "total_migrations", "Migrations per Round", "#ffaa00")
+                _line(axes[0, 2], "total_migrations", "Migrations per Round",                              "#ffaa00")
             else:
-                _disable_ax(axes[0, 0], "N/A — CFL disabled\n(KMeans Inertia)")
+                _disable_ax(axes[0, 0], "N/A — CFL disabled\n(Cluster Purity ≈ 1/K random)")
                 _disable_ax(axes[0, 1], "N/A — CFL disabled\n(# Clusters)")
                 _disable_ax(axes[0, 2], "N/A — CFL disabled\n(Migrations)")
 
-            _line(axes[1, 0], "avg_confidence",     "Avg Confidence",     "#55bb77", ylim=(0, 1.05))
-            _line(axes[1, 1], "avg_local_loss",     "Avg Local Loss",     "#dd7733", ylim=(0, 0.5))
-            _line(axes[1, 2], "avg_peer_alignment", "Avg Peer Alignment", "#9955cc", ylim=(0, 1.05))
+            # Row 1: always-on convergence/precision metrics (work in any
+            # ablation, fixed scales for cross-ablation comparability).
+            _line(axes[1, 0], "avg_local_loss",          "Avg Local Loss",                                                "#e05555", ylim=(0, 0.5))
+            _line(axes[1, 1], "avg_direction_precision", "Avg Direction Precision\n(model vs true target dir)",          "#33cccc", ylim=(0, 1.05))
+            _line(axes[1, 2], "avg_spatial_precision",   "Avg Spatial Precision\n(1 - dist(particle, target) / sim_diag)", "#dd7733", ylim=(0, 1.05))
 
             plt.tight_layout()
             p1 = os.path.join(self.run_dir, "global_metrics.png")
@@ -438,13 +563,14 @@ class SimLogger:
             print("  [FAIL] cluster_sizes.png")
             traceback.print_exc()
 
-        # FIGURE 3 -- Per-cluster confidence & loss (fixed [0,1] axes for comparability)
+        # FIGURE 3 -- Per-cluster confidence, loss, direction precision, spatial precision
+        # (fixed axes on the [0,1] metrics for cross-ablation comparability)
         try:
-            fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+            fig3, (ax3a, ax3b, ax3c, ax3d) = plt.subplots(4, 1, figsize=(12, 14), sharex=True)
             fig3.patch.set_facecolor("#1a1a2e")
             fig3.suptitle(f"Per-Cluster Model Health\n{self._config_label}",
                           color="white", fontsize=12, fontweight="bold")
-            for ax in (ax3a, ax3b):
+            for ax in (ax3a, ax3b, ax3c, ax3d):
                 _style_ax(ax)
 
             for cid in all_cids:
@@ -452,19 +578,29 @@ class SimLogger:
                 rs    = [h["round"]          for h in hist]
                 conf  = [h["avg_confidence"] for h in hist]
                 loss  = [h["avg_local_loss"] for h in hist]
+                dprec = [h.get("avg_direction_precision", 0.0) for h in hist]
+                sprec = [h.get("avg_spatial_precision",   0.0) for h in hist]
                 color = PALETTE[cid % len(PALETTE)]
-                ax3a.plot(rs, conf, color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
-                ax3b.plot(rs, loss, color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
+                ax3a.plot(rs, conf,  color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
+                ax3b.plot(rs, loss,  color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
+                ax3c.plot(rs, dprec, color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
+                ax3d.plot(rs, sprec, color=color, linewidth=1.6, label=f"Cluster {cid}", marker=".", markersize=3)
 
             _mark_events(ax3a)
             _mark_events(ax3b)
+            _mark_events(ax3c)
+            _mark_events(ax3d)
             ax3a.set_ylabel("Avg Confidence", color="white")
             ax3a.set_ylim(0, 1.05)
             ax3b.set_ylabel("Avg Local Loss", color="white")
             ax3b.set_ylim(0, 0.5)
-            ax3b.set_xlabel("Round", color="white")
+            ax3c.set_ylabel("Avg Direction Precision\n(model vs true target dir)", color="white")
+            ax3c.set_ylim(0, 1.05)
+            ax3d.set_ylabel("Avg Spatial Precision\n(particle vs target position)", color="white")
+            ax3d.set_ylim(0, 1.05)
+            ax3d.set_xlabel("Round", color="white")
 
-            for ax in (ax3a, ax3b):
+            for ax in (ax3a, ax3b, ax3c, ax3d):
                 handles, labels = ax.get_legend_handles_labels()
                 ax.legend(handles + _event_legend_patches(),
                           labels  + ["split", "merge", "explosion"],
@@ -618,6 +754,9 @@ class SimLogger:
         avg_conf: float,
         avg_loss: float,
         avg_peer: float,
+        avg_dir_prec: float,
+        avg_spatial_prec: float,
+        purity: Optional[float],
         total_mig: int,
         event: Optional[str],
         transfers: dict,
@@ -625,27 +764,38 @@ class SimLogger:
     ) -> None:
         prev = self._history[-2] if len(self._history) >= 2 else None
 
-        conf_arrow  = _delta_arrow(avg_conf, prev["avg_confidence"]) if prev else " "
-        loss_arrow  = _delta_arrow(avg_loss, prev["avg_local_loss"]) if prev else " "
-        peer_arrow  = _delta_arrow(avg_peer, prev["avg_peer_alignment"]) if prev else " "
+        conf_arrow  = _delta_arrow(avg_conf,         prev["avg_confidence"])           if prev else " "
+        loss_arrow  = _delta_arrow(avg_loss,         prev["avg_local_loss"])           if prev else " "
+        peer_arrow  = _delta_arrow(avg_peer,         prev["avg_peer_alignment"])       if prev else " "
+        dprec_arrow = _delta_arrow(avg_dir_prec,     prev["avg_direction_precision"]) if prev else " "
+        sprec_arrow = _delta_arrow(avg_spatial_prec, prev["avg_spatial_precision"])   if prev else " "
+        if prev is not None and prev.get("cluster_purity") is not None and purity is not None:
+            purity_arrow = _delta_arrow(purity, prev["cluster_purity"])
+        else:
+            purity_arrow = " "
+        purity_str = f"  purity={purity:.3f}{purity_arrow}" if purity is not None else ""
 
         lines = [
             f"\n[ROUND {round_num}]  clusters={num_clusters}  inertia={inertia:.2f}  migrations={total_mig}",
-            f"  global │ conf={avg_conf:.3f}{conf_arrow}  loss={avg_loss:.3f}{loss_arrow}  peer={avg_peer:.3f}{peer_arrow}",
+            f"  global │ conf={avg_conf:.3f}{conf_arrow}  loss={avg_loss:.3f}{loss_arrow}  "
+            f"peer={avg_peer:.3f}{peer_arrow}  dir_prec={avg_dir_prec:.3f}{dprec_arrow}  "
+            f"sp_prec={avg_spatial_prec:.3f}{sprec_arrow}{purity_str}",
         ]
 
         if cluster_rows:
-            lines.append("  ┌─────────┬──────┬────────┬────────┬────────┬────────┬────────┐")
-            lines.append("  │ cluster │ size │  conf  │  loss  │  peer  │ diverg │ spread │")
-            lines.append("  ├─────────┼──────┼────────┼────────┼────────┼────────┼────────┤")
+            lines.append("  ┌─────────┬──────┬────────┬────────┬─────────┬─────────┬────────┬────────┬────────┐")
+            lines.append("  │ cluster │ size │  conf  │  loss  │ dir_prec │ sp_prec │  peer  │ diverg │ spread │")
+            lines.append("  ├─────────┼──────┼────────┼────────┼─────────┼─────────┼────────┼────────┼────────┤")
             for cid, r in sorted(cluster_rows.items()):
                 lines.append(
                     f"  │ {cid:^7d} │ {r['size']:^4d} │ "
                     f"{r['avg_confidence']:^6.3f} │ {r['avg_local_loss']:^6.3f} │ "
+                    f"{r['avg_direction_precision']:^7.3f} │ "
+                    f"{r['avg_spatial_precision']:^7.3f} │ "
                     f"{r['avg_peer_alignment']:^6.3f} │ {r['model_divergence']:^6.3f} │ "
                     f"{r['spatial_spread']:^6.0f} │"
                 )
-            lines.append("  └─────────┴──────┴────────┴────────┴────────┴────────┴────────┘")
+            lines.append("  └─────────┴──────┴────────┴────────┴─────────┴─────────┴────────┴────────┴────────┘")
 
         if event:
             lines.append(f"  *** EVENT: {event.upper()} ***")

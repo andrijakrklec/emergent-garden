@@ -52,16 +52,33 @@ MIN_CLUSTER_SIZE = 3               # clusters smaller than this get absorbed
 BLEND_MATURITY_ROUNDS = 15  # rounds until a new cluster reaches full global blend
 BLEND_LOCAL_NEW   = 0.75    # local weight for a freshly split cluster
 
+# Non-IID bias structure: each particle's _local_bias direction is a mix of
+# its true cluster's shared bias direction and a per-particle random direction.
+# BIAS_CLUSTER_FRACTION controls how much of the bias direction is the latent
+# cluster signal vs per-particle noise. Higher α → more recoverable latent
+# structure → bigger CFL benefit in the ablation.
+#
+# Magnitude is modest (subdominant to the unit-length target direction) so
+# direction precision and loss remain meaningful: model still navigates toward
+# the target, bias just perturbs the heading. Recoverability of the latent
+# cluster signal comes from cluster members SHARING a target (handled in
+# game.py via per-true-cluster anchors), not from oversized bias.
+BIAS_CLUSTER_FRACTION = 0.7
+BIAS_MAG_LO = 0.25
+BIAS_MAG_HI = 0.60
+
 # Identity slice used for KMeans assignment.
 # [0:2] direction is the persistent learned identity; [2] confidence is a slow EMA.
 # Features [3:8] are situational (pressure / alignment / loss / drift / stability)
 # and would cause spurious migrations if used for clustering.
 IDENTITY_SLICE = slice(0, 2)
 
-# Hysteresis: a particle only migrates if the new cluster's centroid is at least
-# this fraction closer (in identity-space) than its current cluster's centroid.
-# 0.0 = no hysteresis (every KMeans flip migrates), 0.20 = need 20% improvement.
-MIGRATION_HYSTERESIS = 0.5
+# Hysteresis: a particle only migrates if the new cluster's loss is at least
+# this fraction lower than the current cluster's loss.
+# 0.0 = no hysteresis (every flip migrates), 0.5 = need 50% improvement,
+# 0.6 = need 60% (current — middle ground: moderate per-round churn while
+# letting IFCA recover purity in <30 rounds).
+MIGRATION_HYSTERESIS = 0.6
 
 BEHAVIORAL_FORCE  = 30.0    # goal-directed push from model[0:2], scaled by confidence
 STRAGGLER_LOSS    = 0.60   # local_loss threshold to consider a particle stranded
@@ -70,6 +87,13 @@ STRAGGLER_DRIFT   = 0.04   # drift_velocity threshold below which a particle is 
 OBSTACLE_SOFT_ZONE     = 20    # px beyond physical edge where pre-contact repulsion starts
 OBSTACLE_SOFT_STRENGTH = 60.0 # base strength of the soft-zone push
 BLEND_LOCAL_MATURE = 0.40   # local weight once matured (your existing value)
+
+# How strongly the emergent pull (net attract/repel force from neighbours)
+# biases the learned heading in local_train. The pull is normalised to a unit
+# vector first, then added to the ideal direction with this weight. ~1.5 means
+# emergent influence is comparable to the unit-length target direction —
+# enough to noticeably drag direction_precision when attraction physics is on.
+EMERGENT_MODEL_WEIGHT = 1.5
 
 class Particle:
     """@brief A single federated agent: cognitive model + physical body.
@@ -89,7 +113,8 @@ class Particle:
       - [7]   drift_velocity   — 0..1 EMA of speed.
     """
 
-    def __init__(self, x, v, c, target_idx, r=PARTICLE_DEFAULT_RADIUS):
+    def __init__(self, x, v, c, target_idx, r=PARTICLE_DEFAULT_RADIUS,
+                 true_cluster_id: int = -1, cluster_bias_dir: Tuple[float, float] = None):
         """@brief Construct an agent with a random heading, target, and non-IID bias.
 
         @param x (x, y) initial position.
@@ -97,6 +122,12 @@ class Particle:
         @param c RGB colour tuple (overwritten by the cluster colour at render time).
         @param target_idx Index of the cluster target this agent initially chases.
         @param r Draw radius in pixels.
+        @param true_cluster_id Ground-truth latent cluster label (the structure CFL is
+            meant to recover). -1 means "no ground truth" — bias falls back to fully
+            random and purity metrics will be N/A.
+        @param cluster_bias_dir Unit vector for this true cluster's shared bias direction.
+            When provided, @c _local_bias is drawn as a mix of this direction and per-particle
+            noise (see @c BIAS_CLUSTER_FRACTION). When None, bias is fully random (legacy).
         """
         self.x = x[0]
         self.y = x[1]
@@ -106,6 +137,7 @@ class Particle:
         self.r = r
         self.target_idx = target_idx
         self.cluster_id = -1
+        self._true_cluster_id = true_cluster_id
 
         # 8-dimensional model:
         # [0] dir_x, [1] dir_y — learned heading (unit vector, as before)
@@ -141,30 +173,56 @@ class Particle:
         self._target_angle = random.uniform(0, 2 * math.pi)
 
         # Per-particle directional bias — the non-IID analog from the CFL paper.
-        # Each "client" systematically misperceives the ideal direction by a random
-        # fixed offset.  Federation averages out these biases; solo learning cannot.
-        _bias_angle    = random.uniform(0, 2 * math.pi)
-        _bias_strength = random.uniform(0.25, 0.60)
-        self._local_bias = np.array([
-            math.cos(_bias_angle) * _bias_strength,
-            math.sin(_bias_angle) * _bias_strength,
-        ])
+        # Each "client" systematically misperceives the ideal direction by a fixed
+        # offset. When a cluster_bias_dir is provided, the bias direction is a mix
+        # of that cluster-shared signal and per-particle noise — so members of the
+        # same true cluster share a latent direction that CFL aggregation can
+        # recover, while individual learning cannot. Magnitude stays random per
+        # particle so even within-cluster, no two agents are identical.
+        _bias_strength = random.uniform(BIAS_MAG_LO, BIAS_MAG_HI)
+        _noise_angle = random.uniform(0, 2 * math.pi)
+        _nx, _ny = math.cos(_noise_angle), math.sin(_noise_angle)
+        if cluster_bias_dir is not None:
+            _cx, _cy = cluster_bias_dir
+            _mx = BIAS_CLUSTER_FRACTION * _cx + (1.0 - BIAS_CLUSTER_FRACTION) * _nx
+            _my = BIAS_CLUSTER_FRACTION * _cy + (1.0 - BIAS_CLUSTER_FRACTION) * _ny
+            _mn = math.hypot(_mx, _my)
+            if _mn > 0:
+                _mx, _my = _mx / _mn, _my / _mn
+            else:
+                _mx, _my = _nx, _ny
+        else:
+            _mx, _my = _nx, _ny
+        self._local_bias = np.array([_mx * _bias_strength, _my * _bias_strength])
 
 
-def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
+def local_train(particle, current_target_pos, obstacles, learning_rate=0.1,
+                emergent_pull=(0.0, 0.0)):
     """@brief One local training step for a single agent (the cognitive update).
 
     Nudges the agent's learned heading @c model[0:2] toward its ideal direction —
     the true direction to its target corrupted by the agent's fixed non-IID bias,
-    then blended with obstacle-avoidance — and refreshes the situational model
-    dimensions: confidence [2], obstacle_pressure [3], local_loss [6] and
-    drift_velocity [7]. The loss uses the *true* (unbiased) target direction so
-    that federation correcting the bias is visible as a loss decrease.
+    then blended with obstacle-avoidance AND any net emergent pull (attract/
+    repel from neighbours) — and refreshes the situational model dimensions:
+    confidence [2], obstacle_pressure [3], local_loss [6] and drift_velocity
+    [7]. The loss uses the *true* (unbiased) target direction so that
+    federation correcting the bias is visible as a loss decrease.
+
+    Wiring the emergent pull into the ideal direction (not just into velocity,
+    where apply_physics_rules already does it) means the LEARNED MODEL also
+    reflects the physical push — direction_precision drops under
+    attraction_enabled=True, decoupling the cognitive and physical contributions
+    of the ablation.
 
     @param particle The Particle to train; mutated in place.
     @param current_target_pos (x, y) of this agent's personal inner target.
     @param obstacles List of (ox, oy, radius) obstacle circles to avoid.
     @param learning_rate Base step size for the heading update (scaled up under pressure).
+    @param emergent_pull (ex, ey) net emergent force vector for this particle this
+        step. Direction is what matters — the vector is normalised to a unit
+        direction before being added to the ideal with @c EMERGENT_MODEL_WEIGHT.
+        Pass (0.0, 0.0) when attraction_enabled=False to keep behaviour
+        identical to the pre-emergent-model code.
     @return None — @p particle.model is updated in place.
     """
     tx = current_target_pos[0] - particle.x
@@ -208,6 +266,18 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     obstacle_weight = 1.25 + raw_pressure * 0.75
     ideal_x = tx_n + ox_total * obstacle_weight
     ideal_y = ty_n + oy_total * obstacle_weight
+
+    # Emergent pull: normalised neighbour-force direction added to the ideal so
+    # the learned heading also reflects where physics is dragging this agent.
+    # Magnitude of the input vector is discarded — only direction is kept, then
+    # scaled by EMERGENT_MODEL_WEIGHT. Comparable in scale to the unit-length
+    # target direction so it noticeably bends model[0:2] when present.
+    ex_in, ey_in = emergent_pull
+    em_norm = math.hypot(ex_in, ey_in)
+    if em_norm > 0.0:
+        ideal_x += (ex_in / em_norm) * EMERGENT_MODEL_WEIGHT
+        ideal_y += (ey_in / em_norm) * EMERGENT_MODEL_WEIGHT
+
     norm = math.hypot(ideal_x, ideal_y)
     if norm > 0:
         ideal_x, ideal_y = ideal_x / norm, ideal_y / norm
@@ -237,10 +307,10 @@ def local_train(particle, current_target_pos, obstacles, learning_rate=0.1):
     # When CFL corrects the model toward the true direction, true_alignment rises and
     # this error falls — making the CFL benefit visible in the loss metric.
     max_dist = math.hypot(SIM_DIM[0], SIM_DIM[1])
-    geo_loss = min(dist_t / max_dist, 1.0) ** 0.5
+    geo_loss = min(dist_t / max_dist, 1.0)
     true_alignment = particle.model[0] * _true_tx + particle.model[1] * _true_ty
     directional_error = 1.0 - (true_alignment + 1.0) / 2.0
-    particle.model[6] = min(0.7 * geo_loss + 0.3 * directional_error, 1.0)
+    particle.model[6] = min(0.5 * geo_loss + 0.5 * directional_error, 1.0)
 
     # --- Update [7]: drift_velocity (EMA of speed) ---
     speed = math.hypot(particle.vx, particle.vy)
@@ -876,7 +946,9 @@ def instantiateGroup(
     num: int,
     c: tuple,
     frame: Tuple[Tuple[int, int], Tuple[int, int]],
-    target_idx: int
+    target_idx: int,
+    true_cluster_id: int = -1,
+    cluster_bias_dir: Tuple[float, float] = None,
     ) -> List[Particle]:
     """@brief Instantiate a group of agents spawned uniformly within a frame.
 
@@ -884,6 +956,10 @@ def instantiateGroup(
     @param c RGB colour tuple for the group.
     @param frame Spawn box ((x_min, x_max), (y_min, y_max)).
     @param target_idx Index of the cluster target this group initially chases.
+    @param true_cluster_id Ground-truth latent label shared by all agents in this group.
+        -1 = no ground truth (purity metric will be N/A for this run).
+    @param cluster_bias_dir Unit vector for this true cluster's shared bias direction.
+        When None, each agent's bias is fully random (legacy).
     @return List[Particle] the newly created agents.
     """
     random.seed()
@@ -893,8 +969,11 @@ def instantiateGroup(
         x = random.randint(frame[0][0], frame[0][1])
         y = random.randint(frame[1][0], frame[1][1])
 
-        # Pass target_idx to the Particle constructor
-        group.append(Particle(x=(x, y), v=(0.0, 0.0), c=c, target_idx=target_idx))
+        group.append(Particle(
+            x=(x, y), v=(0.0, 0.0), c=c, target_idx=target_idx,
+            true_cluster_id=true_cluster_id,
+            cluster_bias_dir=cluster_bias_dir,
+        ))
 
     return group
 

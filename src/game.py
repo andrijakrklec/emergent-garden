@@ -285,12 +285,36 @@ class SimulationThread(threading.Thread):
             if _nc is not None:
                 print(f"[config] num_clusters={_nc!r} out of range [{MIN_CLUSTERS},{MAX_CLUSTERS}] — using random ({self.num_clusters})")
         D = WALL_BOUNDARY * 4
-        self.cluster_targets = [
-            (random.randint(D, SIM_WIDTH - D), random.randint(D, SIM_HEIGHT - D))
-            for _ in range(self.num_clusters)
-        ]
+        # Per-true-cluster spatial anchors: evenly spaced on a circle inside
+        # the sim. All members of true cluster i share anchor i as their
+        # _target_x/_y so cluster members have a SHARED goal — that shared
+        # signal is what CFL aggregation can recover, while individual learning
+        # cannot. Anchors are populated below only in the configured branch
+        # (when ground truth is meaningful); empty list = legacy per-particle
+        # target mode.
+        self._true_anchors: List[Tuple[float, float]] = []
+        self._true_anchor_angles: List[float] = []
+        if _nc_configured:
+            _cx, _cy = SIM_WIDTH / 2.0, SIM_HEIGHT / 2.0
+            _radius = min(SIM_WIDTH, SIM_HEIGHT) / 2.0 - D
+            self._true_anchors = [
+                (_cx + _radius * math.cos(2 * math.pi * i / self.num_clusters),
+                 _cy + _radius * math.sin(2 * math.pi * i / self.num_clusters))
+                for i in range(self.num_clusters)
+            ]
+            self._true_anchor_angles = [random.uniform(0, 2 * math.pi) for _ in range(self.num_clusters)]
+            # Pin initial cluster_targets to the true anchors so IFCA has a
+            # non-degenerate spatial loss landscape from round 1 (otherwise the
+            # random init scrambles them to ~the sim centroid).
+            self.cluster_targets = [(int(ax), int(ay)) for ax, ay in self._true_anchors]
+        else:
+            self.cluster_targets = [
+                (random.randint(D, SIM_WIDTH - D), random.randint(D, SIM_HEIGHT - D))
+                for _ in range(self.num_clusters)
+            ]
 
-        self.cooldown_counter = 0
+        # Shared-anchor mode pins K — disable IFCA split/merge from the start.
+        self.cooldown_counter = 10**6 if self._true_anchors else 0
         self.cluster_ages = {i: BLEND_MATURITY_ROUNDS for i in range(self.num_clusters)}
 
         trail_maxlen = FRAME_RATE * 3  # ~3 seconds of history at FRAME_RATE sample rate
@@ -302,17 +326,41 @@ class SimulationThread(threading.Thread):
 
         self.all_particles = []
         if _nc_configured:
-            # Spawn one group per cluster so every cluster starts populated.
-            # Skip the initial CFL round — the configured count is authoritative.
+            # Spawn one group per true cluster. Each group shares a latent bias
+            # direction (evenly spaced around 2π) AND a shared spatial anchor —
+            # together those constitute the ground-truth latent structure CFL is
+            # meant to recover. Particles in true cluster i spawn near anchor i
+            # and have _target_x/_y pinned to anchor i. Initial cluster_id is
+            # randomised so init purity ≈ 1/K — CFL must do the discovery work,
+            # CFL-off stays at the random baseline.
+            _cluster_bias_dirs = [
+                (math.cos(2 * math.pi * i / self.num_clusters),
+                 math.sin(2 * math.pi * i / self.num_clusters))
+                for i in range(self.num_clusters)
+            ]
+            # Spawn ALL true-cluster groups in the global center box (the same
+            # PARTICLE_DEFAULT_SPAWN_FRAME the legacy code used). Each group
+            # still has _target_x/_y pinned to its own anchor on the perimeter —
+            # so particles start far from their target, geometric loss is large
+            # at round 1, and the loss curve shows a real per-round decrease as
+            # the swarm navigates to its anchors. Spawning each group AT its
+            # anchor would make initial loss already at the bias-limited floor
+            # and the loss plot would be a flat line.
             for i in range(self.num_clusters):
+                ax, ay = self._true_anchors[i]
                 group = instantiateGroup(
                     num=PARTICLE_DEFAULT_SPAWN_NUM,
                     c=PARTICLE_COLOR_WHITE,
                     frame=PARTICLE_DEFAULT_SPAWN_FRAME,
                     target_idx=i,
+                    true_cluster_id=i,
+                    cluster_bias_dir=_cluster_bias_dirs[i],
                 )
                 for p in group:
-                    p.cluster_id = i
+                    p._target_x = float(ax)
+                    p._target_y = float(ay)
+                    p._target_angle = self._true_anchor_angles[i]
+                    p.cluster_id = random.randint(0, self.num_clusters - 1)
                 self.all_particles.extend(group)
         else:
             # Random cluster count: spawn 5 groups with random assignment and
@@ -327,7 +375,19 @@ class SimulationThread(threading.Thread):
                 ))
 
         self.kmeans = KMeans(n_clusters=self.num_clusters, n_init=10, random_state=0)
-        self.cluster_update_interval = 200  # physics steps between CFL rounds
+        # Physics steps between CFL rounds. Shorter → model isn't fully converged
+        # between rounds, so the per-round loss trajectory shows real convergence
+        # across rounds (not just a flat line at the bias-limited floor).
+        # Configurable via config.json's "cluster_update_interval".
+        _cui = _cfg.get("cluster_update_interval")
+        self.cluster_update_interval = int(_cui) if isinstance(_cui, (int, float)) and _cui > 0 else 50
+        # Rounds during which IFCA split/merge is suppressed (only relevant in
+        # shared-anchor mode where K is pinned to K_true). Lets IFCA find the
+        # latent structure first, then unpins so dynamic-K behavior can emerge.
+        # Configurable via config.json's "split_merge_start_round". 0 = never
+        # pin; very large = always pin.
+        _smsr = _cfg.get("split_merge_start_round")
+        self.split_merge_start_round = int(_smsr) if isinstance(_smsr, (int, float)) and _smsr >= 0 else 20
         self.cluster_update_timer = 0
         self.cfl_round_counter = 0
         self.cfl_enabled        = bool(_cfg.get("cfl_enabled",        True))
@@ -458,39 +518,105 @@ class SimulationThread(threading.Thread):
         _DRIFT_SPEED  = 0.10
         _DRIFT_MARGIN = WALL_BOUNDARY * 4
 
-        # Drift each particle's own inner target independently
-        for p in self.all_particles:
-            p._target_angle += random.uniform(-0.01, 0.01)
-            nx = p._target_x + _DRIFT_SPEED * math.cos(p._target_angle)
-            ny = p._target_y + _DRIFT_SPEED * math.sin(p._target_angle)
-            if nx < _DRIFT_MARGIN or nx > SIM_WIDTH - _DRIFT_MARGIN:
-                p._target_angle = math.pi - p._target_angle
-                nx = max(_DRIFT_MARGIN, min(SIM_WIDTH - _DRIFT_MARGIN, nx))
-            if ny < _DRIFT_MARGIN or ny > SIM_HEIGHT - _DRIFT_MARGIN:
-                p._target_angle = -p._target_angle
-                ny = max(_DRIFT_MARGIN, min(SIM_HEIGHT - _DRIFT_MARGIN, ny))
-            p._target_x = nx
-            p._target_y = ny
+        if self._true_anchors:
+            # Shared-anchor mode: drift K anchors (one per true cluster) instead
+            # of N per-particle targets, then refresh each particle's _target
+            # from its true cluster's anchor. This keeps all members of a true
+            # cluster locked to a SHARED goal — federation can cancel the
+            # remaining per-particle bias noise; individual learning cannot.
+            for i in range(len(self._true_anchors)):
+                ang = self._true_anchor_angles[i] + random.uniform(-0.01, 0.01)
+                ax, ay = self._true_anchors[i]
+                nx = ax + _DRIFT_SPEED * math.cos(ang)
+                ny = ay + _DRIFT_SPEED * math.sin(ang)
+                if nx < _DRIFT_MARGIN or nx > SIM_WIDTH - _DRIFT_MARGIN:
+                    ang = math.pi - ang
+                    nx = max(_DRIFT_MARGIN, min(SIM_WIDTH - _DRIFT_MARGIN, nx))
+                if ny < _DRIFT_MARGIN or ny > SIM_HEIGHT - _DRIFT_MARGIN:
+                    ang = -ang
+                    ny = max(_DRIFT_MARGIN, min(SIM_HEIGHT - _DRIFT_MARGIN, ny))
+                self._true_anchors[i] = (nx, ny)
+                self._true_anchor_angles[i] = ang
 
-        # Recompute cluster targets as the average of each cluster's inner targets
-        sums: Dict[int, List[float]] = {}
-        counts: Dict[int, int] = {}
-        for p in self.all_particles:
-            cid = p.cluster_id if p.cluster_id >= 0 else p.target_idx
-            if cid not in sums:
-                sums[cid] = [0.0, 0.0]
-                counts[cid] = 0
-            sums[cid][0] += p._target_x
-            sums[cid][1] += p._target_y
-            counts[cid] += 1
-        for i in range(len(self.cluster_targets)):
-            if i in sums:
-                n = counts[i]
-                self.cluster_targets[i] = (sums[i][0] / n, sums[i][1] / n)
+            for p in self.all_particles:
+                if 0 <= p._true_cluster_id < len(self._true_anchors):
+                    p._target_x, p._target_y = self._true_anchors[p._true_cluster_id]
+
+            # Pin cluster_targets[k] = anchor_k for k < K_true so the IFCA loss
+            # landscape stays aligned with the ground truth. Any extra entries
+            # introduced by IFCA splits keep whatever value run_cfl_round set.
+            for i in range(min(len(self.cluster_targets), len(self._true_anchors))):
+                self.cluster_targets[i] = self._true_anchors[i]
+        else:
+            # Legacy: per-particle drifting targets + cluster_targets as the
+            # per-predicted-cluster mean of inner targets.
+            for p in self.all_particles:
+                p._target_angle += random.uniform(-0.01, 0.01)
+                nx = p._target_x + _DRIFT_SPEED * math.cos(p._target_angle)
+                ny = p._target_y + _DRIFT_SPEED * math.sin(p._target_angle)
+                if nx < _DRIFT_MARGIN or nx > SIM_WIDTH - _DRIFT_MARGIN:
+                    p._target_angle = math.pi - p._target_angle
+                    nx = max(_DRIFT_MARGIN, min(SIM_WIDTH - _DRIFT_MARGIN, nx))
+                if ny < _DRIFT_MARGIN or ny > SIM_HEIGHT - _DRIFT_MARGIN:
+                    p._target_angle = -p._target_angle
+                    ny = max(_DRIFT_MARGIN, min(SIM_HEIGHT - _DRIFT_MARGIN, ny))
+                p._target_x = nx
+                p._target_y = ny
+
+            sums: Dict[int, List[float]] = {}
+            counts: Dict[int, int] = {}
+            for p in self.all_particles:
+                cid = p.cluster_id if p.cluster_id >= 0 else p.target_idx
+                if cid not in sums:
+                    sums[cid] = [0.0, 0.0]
+                    counts[cid] = 0
+                sums[cid][0] += p._target_x
+                sums[cid][1] += p._target_y
+                counts[cid] += 1
+            for i in range(len(self.cluster_targets)):
+                if i in sums:
+                    n = counts[i]
+                    self.cluster_targets[i] = (sums[i][0] / n, sums[i][1] / n)
+
+        # Compute per-particle emergent pull (net attract/repel from neighbours)
+        # so local_train can fold it into the learned heading. Same force topology
+        # as apply_physics_rules — respects the rules table, falls back to
+        # g_attract/g_repel by intra/inter-cluster. Skipped when attraction is
+        # off so the emergent_pull defaults to (0,0) and behaviour is identical
+        # to the pre-emergent-model code path.
+        n_parts = len(self.all_particles)
+        emergent_pulls = [(0.0, 0.0)] * n_parts
+        if self.attraction_enabled and n_parts > 1:
+            from src.constants import PARTICLE_FORCE_UPPER_RANGE
+            _upper_sq = PARTICLE_FORCE_UPPER_RANGE ** 2
+            for i, p in enumerate(self.all_particles):
+                if p.cluster_id == -1:
+                    continue
+                ex, ey = 0.0, 0.0
+                for j, other in enumerate(self.all_particles):
+                    if i == j or other.cluster_id == -1:
+                        continue
+                    dx = p.x - other.x
+                    dy = p.y - other.y
+                    d_sq = dx * dx + dy * dy
+                    if d_sq > _upper_sq or d_sq < 1.0:
+                        continue
+                    ci, cj = p.cluster_id, other.cluster_id
+                    if self.rules:
+                        g = self.rules.get((min(ci, cj), max(ci, cj)),
+                                           self.g_attract if ci == cj else self.g_repel)
+                    else:
+                        g = self.g_attract if ci == cj else self.g_repel
+                    d = math.sqrt(d_sq)
+                    F = g / (d * n_parts)
+                    ex += F * dx
+                    ey += F * dy
+                emergent_pulls[i] = (ex, ey)
 
         # Local training — each particle chases its own inner target
-        for p in self.all_particles:
-            local_train(p, (p._target_x, p._target_y), self.obstacles, learning_rate=0.02)
+        for i, p in enumerate(self.all_particles):
+            local_train(p, (p._target_x, p._target_y), self.obstacles,
+                        learning_rate=0.02, emergent_pull=emergent_pulls[i])
 
         # Simulation round — fires every cluster_update_interval physics steps.
         self.cluster_update_timer += 1
@@ -518,6 +644,18 @@ class SimulationThread(threading.Thread):
                     self.all_particles, self.kmeans, self.cluster_targets,
                     self.cluster_colors, self.cluster_ages, self.cooldown_counter,
                 )
+
+                # Shared-anchor mode pins K=K_true for the first
+                # `split_merge_start_round` rounds so IFCA can find the latent
+                # structure cleanly. After that, the pin is released and IFCA's
+                # split/merge becomes active so K can drift adaptively. Without
+                # the explicit reset, the leftover 999_999 from the pin would
+                # take a million rounds to decrement back to 0.
+                if self._true_anchors:
+                    if self.cfl_round_counter < self.split_merge_start_round:
+                        self.cooldown_counter = 10**6
+                    elif self.cooldown_counter > 100:
+                        self.cooldown_counter = 0
 
                 max_idx = len(self.cluster_targets) - 1
                 for p in self.all_particles:
