@@ -88,9 +88,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1c2de070ce2c848dac39737981d703ff"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classparticle_1_1Particle.html#a1c2de070ce2c848dac39737981d703ff">__init__</a> (self, <a class="el" href="classparticle_1_1Particle.html#a6264bf19e9fc8eae7b851558ece2459e">x</a>, v, <a class="el" href="classparticle_1_1Particle.html#a4a1bbc825f1cf3d08733df39feaa5ceb">c</a>, <a class="el" href="classparticle_1_1Particle.html#a2d88c9b62561b7a1aedf816e4f3c4304">target_idx</a>, <a class="el" href="classparticle_1_1Particle.html#aa3ba8c5eec9533bfe91938392fa8d916">r</a>=PARTICLE_DEFAULT_RADIUS)</td></tr>
-<tr class="memdesc:a1c2de070ce2c848dac39737981d703ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct an agent with a random heading, target, and non-IID bias.  <br /></td></tr>
-<tr class="separator:a1c2de070ce2c848dac39737981d703ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad54603c5b2ac5f32c5f60d8f4555e0b6"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classparticle_1_1Particle.html#ad54603c5b2ac5f32c5f60d8f4555e0b6">__init__</a> (self, <a class="el" href="classparticle_1_1Particle.html#a6264bf19e9fc8eae7b851558ece2459e">x</a>, v, <a class="el" href="classparticle_1_1Particle.html#a4a1bbc825f1cf3d08733df39feaa5ceb">c</a>, <a class="el" href="classparticle_1_1Particle.html#a2d88c9b62561b7a1aedf816e4f3c4304">target_idx</a>, <a class="el" href="classparticle_1_1Particle.html#aa3ba8c5eec9533bfe91938392fa8d916">r</a>=PARTICLE_DEFAULT_RADIUS, int true_cluster_id=-1, Tuple[float, float] cluster_bias_dir=None)</td></tr>
+<tr class="memdesc:ad54603c5b2ac5f32c5f60d8f4555e0b6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct an agent with a random heading, target, and non-IID bias.  <br /></td></tr>
+<tr class="separator:ad54603c5b2ac5f32c5f60d8f4555e0b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -115,6 +115,8 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
+<tr class="memitem:a7e2f7d06d9498620db956641bec743e9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classparticle_1_1Particle.html#a7e2f7d06d9498620db956641bec743e9">_true_cluster_id</a></td></tr>
+<tr class="separator:a7e2f7d06d9498620db956641bec743e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28c6e777a7d6386df013d8ba36d21f32"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classparticle_1_1Particle.html#a28c6e777a7d6386df013d8ba36d21f32">_prev_cluster_id</a></td></tr>
 <tr class="separator:a28c6e777a7d6386df013d8ba36d21f32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5cccc0c19a689bd66a2f84d64b00740d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classparticle_1_1Particle.html#a5cccc0c19a689bd66a2f84d64b00740d">_stable_rounds</a></td></tr>
@@ -146,10 +148,10 @@ Model layout (indices into @c self.model):
   - [6]   local_loss       — 0..1 distance + directional error to the target.
   - [7]   drift_velocity   — 0..1 EMA of speed.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00074">74</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00098">98</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a1c2de070ce2c848dac39737981d703ff" name="a1c2de070ce2c848dac39737981d703ff"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c2de070ce2c848dac39737981d703ff">&#9670;&#160;</a></span>__init__()</h2>
+<a id="ad54603c5b2ac5f32c5f60d8f4555e0b6" name="ad54603c5b2ac5f32c5f60d8f4555e0b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad54603c5b2ac5f32c5f60d8f4555e0b6">&#9670;&#160;</a></span>__init__()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -188,7 +190,19 @@ Model layout (indices into @c self.model):
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">&#160;</td>
-          <td class="paramname"><em>r</em> = <code>PARTICLE_DEFAULT_RADIUS</code>&#160;</td>
+          <td class="paramname"><em>r</em> = <code>PARTICLE_DEFAULT_RADIUS</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int &#160;</td>
+          <td class="paramname"><em>true_cluster_id</em> = <code>-1</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Tuple[float, float] &#160;</td>
+          <td class="paramname"><em>cluster_bias_dir</em> = <code>None</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -204,8 +218,14 @@ Model layout (indices into @c self.model):
     @param c RGB colour tuple (overwritten by the cluster colour at render time).
     @param target_idx Index of the cluster target this agent initially chases.
     @param r Draw radius in pixels.
+    @param true_cluster_id Ground-truth latent cluster label (the structure CFL is
+        meant to recover). -1 means "no ground truth" — bias falls back to fully
+        random and purity metrics will be N/A.
+    @param cluster_bias_dir Unit vector for this true cluster's shared bias direction.
+        When provided, @c _local_bias is drawn as a mix of this direction and per-particle
+        noise (see @c BIAS_CLUSTER_FRACTION). When None, bias is fully random (legacy).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00092">92</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00116">116</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -222,7 +242,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00101">101</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00132">132</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -238,7 +258,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00102">102</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00133">133</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -254,7 +274,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00103">103</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00134">134</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -270,7 +290,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00104">104</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00135">135</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -286,7 +306,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00105">105</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00136">136</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -302,7 +322,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00106">106</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00137">137</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -318,7 +338,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00107">107</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00138">138</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -334,7 +354,31 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00108">108</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00139">139</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+
+</div>
+</div>
+<a id="a7e2f7d06d9498620db956641bec743e9" name="a7e2f7d06d9498620db956641bec743e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7e2f7d06d9498620db956641bec743e9">&#9670;&#160;</a></span>_true_cluster_id</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">particle.Particle._true_cluster_id</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00140">140</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -350,7 +394,7 @@ Model layout (indices into @c self.model):
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00120">120</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00152">152</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -374,7 +418,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00132">132</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00164">164</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -398,7 +442,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00133">133</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00165">165</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -422,7 +466,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00134">134</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00166">166</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -446,7 +490,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00139">139</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00171">171</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -470,7 +514,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00140">140</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00172">172</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -494,7 +538,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00141">141</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00173">173</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -518,7 +562,7 @@ Model layout (indices into @c self.model):
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00148">148</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00196">196</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>

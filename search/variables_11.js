@@ -9,6 +9,7 @@ var searchData=
   ['sim_5fwidth_6',['SIM_WIDTH',['../namespaceconstants.html#ab2edff3f3cd9f3ea8c3d3cb16c94f035',1,'constants']]],
   ['split_5fcoherence_5fthreshold_7',['SPLIT_COHERENCE_THRESHOLD',['../namespaceparticle.html#a3d9153c02befa57bcafa6bdf906b9f8e',1,'particle']]],
   ['split_5floss_5fthreshold_8',['SPLIT_LOSS_THRESHOLD',['../namespaceparticle.html#a63689768605ee7097e359d98165f71ad',1,'particle']]],
-  ['straggler_5fdrift_9',['STRAGGLER_DRIFT',['../namespaceparticle.html#a13dda25256193887490ee04ee41fc877',1,'particle']]],
-  ['straggler_5floss_10',['STRAGGLER_LOSS',['../namespaceparticle.html#a57fd2da2fa721adc147cc0a5e8d376f8',1,'particle']]]
+  ['split_5fmerge_5fstart_5fround_9',['split_merge_start_round',['../classgame_1_1SimulationThread.html#a8ac281a3e1040cb68a93b7b8e81e8408',1,'game::SimulationThread']]],
+  ['straggler_5fdrift_10',['STRAGGLER_DRIFT',['../namespaceparticle.html#a13dda25256193887490ee04ee41fc877',1,'particle']]],
+  ['straggler_5floss_11',['STRAGGLER_LOSS',['../namespaceparticle.html#a57fd2da2fa721adc147cc0a5e8d376f8',1,'particle']]]
 ];

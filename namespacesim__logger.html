@@ -72,7 +72,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle"><div class="title">sim_logger Namespace Reference</div></div>
 </div><!--header-->
 <div class="contents">
@@ -91,6 +92,20 @@ Functions</h2></td></tr>
 <tr class="separator:abc31fee475693041759af7372566a162"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memItemLeft" align="right" valign="top">str&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#adebaf2b17a7e248e4dfa5a16be9ad199">_delta_arrow</a> (float current, float previous, float threshold=0.005)</td></tr>
 <tr class="separator:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memItemLeft" align="right" valign="top">Optional[float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#aa50ccafe9a3af8f3098e174a8c75ed38">_cluster_purity</a> (particles)</td></tr>
+<tr class="memdesc:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>.  <br /></td></tr>
+<tr class="separator:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#a7934c4f01d5c9bb176c12f5d7886e83a">_spatial_precision</a> (particle, float max_dist)</td></tr>
+<tr class="memdesc:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="mdescLeft">&#160;</td><td class="mdescRight">How close a particle is to its target, in [0, 1] (1 = at the target).  <br /></td></tr>
+<tr class="separator:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a012386e6603d5729b3c1947944d46132"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#a012386e6603d5729b3c1947944d46132">_direction_precision</a> (particle)</td></tr>
+<tr class="memdesc:a012386e6603d5729b3c1947944d46132"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cosine alignment of a particle's learned heading to the <em>true</em> (unbiased) target direction, mapped to [0, 1].  <br /></td></tr>
+<tr class="separator:a012386e6603d5729b3c1947944d46132"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a498f62baf03daf639e8ee16c1c0ee802"><td class="memItemLeft" align="right" valign="top">math&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#a498f62baf03daf639e8ee16c1c0ee802">_MAX_DIST</a> = math.hypot(SIM_DIM[0], SIM_DIM[1])</td></tr>
+<tr class="separator:a498f62baf03daf639e8ee16c1c0ee802"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
 <a id="a4f66b9300e6f2bfe2efdbaadee430acd" name="a4f66b9300e6f2bfe2efdbaadee430acd"></a>
@@ -117,7 +132,7 @@ Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00045">45</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00052">52</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -144,7 +159,7 @@ Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00049">49</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00056">56</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -188,7 +203,167 @@ Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00053">53</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00060">60</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+
+</div>
+</div>
+<a id="aa50ccafe9a3af8f3098e174a8c75ed38" name="aa50ccafe9a3af8f3098e174a8c75ed38"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa50ccafe9a3af8f3098e174a8c75ed38">&#9670;&#160;</a></span>_cluster_purity()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"> Optional[float] sim_logger._cluster_purity </td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>particles</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>. </p>
+<pre class="fragment">Purity = (1/N) * Σ_k max_j |{p : p.cluster_id = k} ∩ {p : p._true_cluster_id = j}|.
+
+Standard unsupervised-clustering metric: for each predicted cluster, count
+how many of its members share the dominant ground-truth label, sum across
+clusters, divide by N. Headline ablation metric here — CFL aggregation
+drives it toward 1.0 by discovering the latent bias structure, while
+individual learning leaves @c cluster_id pinned at the random init so purity
+hovers near 1/K.
+
+Returns None when no particle carries a ground-truth label (legacy runs);
+callers should treat that as N/A rather than logging a fake 1.0.
+
+@param particles List of Particle agents.
+@return float in [0, 1] or None.
+</pre> 
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00069">69</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+
+</div>
+</div>
+<a id="a7934c4f01d5c9bb176c12f5d7886e83a" name="a7934c4f01d5c9bb176c12f5d7886e83a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7934c4f01d5c9bb176c12f5d7886e83a">&#9670;&#160;</a></span>_spatial_precision()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"> float sim_logger._spatial_precision </td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>particle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>max_dist</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>How close a particle is to its target, in [0, 1] (1 = at the target). </p>
+<pre class="fragment">@c spatial_precision = 1 - dist(particle, _target) / sim_diagonal. Same scale
+as @c direction_precision so the two metrics are visually comparable on the
+same axes. Complements @c direction_precision: the model can be aimed
+correctly (high dir_prec) while the body is dragged off-target by emergent
+forces (low spatial_prec) — the two precisions decouple the cognitive and
+physical errors.
+
+@param particle A Particle with @c x, @c y, @c _target_x, @c _target_y.
+@param max_dist Sim diagonal (normaliser; same one used by local_loss).
+@return float in [0, 1].
+</pre> 
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00102">102</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+
+</div>
+</div>
+<a id="a012386e6603d5729b3c1947944d46132" name="a012386e6603d5729b3c1947944d46132"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a012386e6603d5729b3c1947944d46132">&#9670;&#160;</a></span>_direction_precision()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"> float sim_logger._direction_precision </td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>particle</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Cosine alignment of a particle's learned heading to the <em>true</em> (unbiased) target direction, mapped to [0, 1]. </p>
+<pre class="fragment">The local trainer corrupts each per-agent target direction with a persistent
+@c _local_bias (particle.py). With federation on, IFCA aggregates members'
+models and the random per-agent biases cancel — the learned heading approaches
+the true direction and this metric rises. Without federation, the bias persists
+and the metric stays low. This is the headline ablation metric: CFL vs
+individual learning under non-IID clients.
+
+1.0 = perfect alignment with the unbiased ideal; 0.5 = orthogonal; 0.0 = anti-aligned.
+
+@param particle A Particle with @c x, @c y, @c _target_x, @c _target_y, @c model.
+@return float in [0, 1].
+</pre> 
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00122">122</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+
+</div>
+</div>
+<h2 class="groupheader">Variable Documentation</h2>
+<a id="a498f62baf03daf639e8ee16c1c0ee802" name="a498f62baf03daf639e8ee16c1c0ee802"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a498f62baf03daf639e8ee16c1c0ee802">&#9670;&#160;</a></span>_MAX_DIST</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">math sim_logger._MAX_DIST = math.hypot(SIM_DIM[0], SIM_DIM[1])</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00040">40</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>

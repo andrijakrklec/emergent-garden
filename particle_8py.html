@@ -101,9 +101,9 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ad0e60e323fb6ffb3f0179fdd59dbce77">particle.local_train</a> (particle, current_target_pos, obstacles, learning_rate=0.1)</td></tr>
-<tr class="memdesc:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="mdescLeft">&#160;</td><td class="mdescRight">One local training step for a single agent (the cognitive update).  <br /></td></tr>
-<tr class="separator:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac15999310cc56907f8a1ebda11a0efa3"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ac15999310cc56907f8a1ebda11a0efa3">particle.local_train</a> (particle, current_target_pos, obstacles, learning_rate=0.1, emergent_pull=(0.0, 0.0))</td></tr>
+<tr class="memdesc:ac15999310cc56907f8a1ebda11a0efa3"><td class="mdescLeft">&#160;</td><td class="mdescRight">One local training step for a single agent (the cognitive update).  <br /></td></tr>
+<tr class="separator:ac15999310cc56907f8a1ebda11a0efa3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a4c9e508b87f83bc1a5c9973a7a12419b">particle.update_peer_alignment</a> (particles, neighbor_radius=90.0)</td></tr>
 <tr class="memdesc:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Feed spatial-neighbourhood consensus back into each agent's model (physical -&gt; cognitive).  <br /></td></tr>
 <tr class="separator:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -125,9 +125,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ad2bfac9b593b3276ff750c8768d296be"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ad2bfac9b593b3276ff750c8768d296be">particle.run_cfl_round</a> (particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter)</td></tr>
 <tr class="memdesc:ad2bfac9b593b3276ff750c8768d296be"><td class="mdescLeft">&#160;</td><td class="mdescRight">One IFCA-style clustered federated learning round (Ghosh et al.  <br /></td></tr>
 <tr class="separator:ad2bfac9b593b3276ff750c8768d296be"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7383777272eee52907826e5e72b75c54"><td class="memItemLeft" align="right" valign="top">List[Particle]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a7383777272eee52907826e5e72b75c54">particle.instantiateGroup</a> (int num, tuple c, Tuple[Tuple[int, int], Tuple[int, int]] frame, int target_idx)</td></tr>
-<tr class="memdesc:a7383777272eee52907826e5e72b75c54"><td class="mdescLeft">&#160;</td><td class="mdescRight">Instantiate a group of agents spawned uniformly within a frame.  <br /></td></tr>
-<tr class="separator:a7383777272eee52907826e5e72b75c54"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af00206e8934879284cdf460d56a1b34e"><td class="memItemLeft" align="right" valign="top">List[Particle]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af00206e8934879284cdf460d56a1b34e">particle.instantiateGroup</a> (int num, tuple c, Tuple[Tuple[int, int], Tuple[int, int]] frame, int target_idx, int true_cluster_id=-1, Tuple[float, float] cluster_bias_dir=None)</td></tr>
+<tr class="memdesc:af00206e8934879284cdf460d56a1b34e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Instantiate a group of agents spawned uniformly within a frame.  <br /></td></tr>
+<tr class="separator:af00206e8934879284cdf460d56a1b34e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2a4f5bb5bfbec0a19198bf099c26594"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af2a4f5bb5bfbec0a19198bf099c26594">particle._pick_unused_color</a> (used_colors)</td></tr>
 <tr class="memdesc:af2a4f5bb5bfbec0a19198bf099c26594"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pick the first palette colour not already in use (for a new cluster).  <br /></td></tr>
 <tr class="separator:af2a4f5bb5bfbec0a19198bf099c26594"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -152,9 +152,15 @@ Variables</h2></td></tr>
 <tr class="separator:a5da40cbb27d8d787255e74808d8134c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace1e8a3695077b6391c4c2d0fa5fc897"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ace1e8a3695077b6391c4c2d0fa5fc897">particle.BLEND_LOCAL_NEW</a> = 0.75</td></tr>
 <tr class="separator:ace1e8a3695077b6391c4c2d0fa5fc897"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a817776b4b7ae101a745258ffd680d2bb"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a817776b4b7ae101a745258ffd680d2bb">particle.BIAS_CLUSTER_FRACTION</a> = 0.7</td></tr>
+<tr class="separator:a817776b4b7ae101a745258ffd680d2bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a154f618f1f730b394a7e55147d87aa1b"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a154f618f1f730b394a7e55147d87aa1b">particle.BIAS_MAG_LO</a> = 0.25</td></tr>
+<tr class="separator:a154f618f1f730b394a7e55147d87aa1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ea263f2544a113ecbb3cd05e69055bf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a6ea263f2544a113ecbb3cd05e69055bf">particle.BIAS_MAG_HI</a> = 0.60</td></tr>
+<tr class="separator:a6ea263f2544a113ecbb3cd05e69055bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3b47c10176a58939f2bc2499ffefde8"><td class="memItemLeft" align="right" valign="top">slice&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ac3b47c10176a58939f2bc2499ffefde8">particle.IDENTITY_SLICE</a> = slice(0, 2)</td></tr>
 <tr class="separator:ac3b47c10176a58939f2bc2499ffefde8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60e414500a6bca87c24e4761ead07ccf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a60e414500a6bca87c24e4761ead07ccf">particle.MIGRATION_HYSTERESIS</a> = 0.5</td></tr>
+<tr class="memitem:a60e414500a6bca87c24e4761ead07ccf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a60e414500a6bca87c24e4761ead07ccf">particle.MIGRATION_HYSTERESIS</a> = 0.6</td></tr>
 <tr class="separator:a60e414500a6bca87c24e4761ead07ccf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6cbd44c52b8820dec94ebb6b4d336bcf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a6cbd44c52b8820dec94ebb6b4d336bcf">particle.BEHAVIORAL_FORCE</a> = 30.0</td></tr>
 <tr class="separator:a6cbd44c52b8820dec94ebb6b4d336bcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -168,6 +174,8 @@ Variables</h2></td></tr>
 <tr class="separator:ab2055c4a0a111852e8ffac8606658de6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a69d24211741a1ca5db2e941db5197d0a"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a69d24211741a1ca5db2e941db5197d0a">particle.BLEND_LOCAL_MATURE</a> = 0.40</td></tr>
 <tr class="separator:a69d24211741a1ca5db2e941db5197d0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae1dc855c662353945e61dd153980ef2e"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ae1dc855c662353945e61dd153980ef2e">particle.EMERGENT_MODEL_WEIGHT</a> = 1.5</td></tr>
+<tr class="separator:ae1dc855c662353945e61dd153980ef2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af5b71d6db240a4aff1f13ece3c95d4e0"><td class="memItemLeft" align="right" valign="top">list&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af5b71d6db240a4aff1f13ece3c95d4e0">particle.CLUSTER_PALETTE</a></td></tr>
 <tr class="separator:af5b71d6db240a4aff1f13ece3c95d4e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>

@@ -86,9 +86,9 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ad0e60e323fb6ffb3f0179fdd59dbce77">local_train</a> (particle, current_target_pos, obstacles, learning_rate=0.1)</td></tr>
-<tr class="memdesc:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="mdescLeft">&#160;</td><td class="mdescRight">One local training step for a single agent (the cognitive update).  <br /></td></tr>
-<tr class="separator:ad0e60e323fb6ffb3f0179fdd59dbce77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac15999310cc56907f8a1ebda11a0efa3"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ac15999310cc56907f8a1ebda11a0efa3">local_train</a> (particle, current_target_pos, obstacles, learning_rate=0.1, emergent_pull=(0.0, 0.0))</td></tr>
+<tr class="memdesc:ac15999310cc56907f8a1ebda11a0efa3"><td class="mdescLeft">&#160;</td><td class="mdescRight">One local training step for a single agent (the cognitive update).  <br /></td></tr>
+<tr class="separator:ac15999310cc56907f8a1ebda11a0efa3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a4c9e508b87f83bc1a5c9973a7a12419b">update_peer_alignment</a> (particles, neighbor_radius=90.0)</td></tr>
 <tr class="memdesc:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Feed spatial-neighbourhood consensus back into each agent's model (physical -&gt; cognitive).  <br /></td></tr>
 <tr class="separator:a4c9e508b87f83bc1a5c9973a7a12419b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -110,9 +110,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ad2bfac9b593b3276ff750c8768d296be"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ad2bfac9b593b3276ff750c8768d296be">run_cfl_round</a> (particles, kmeans_model, cluster_targets, cluster_colors, cluster_ages, cooldown_counter)</td></tr>
 <tr class="memdesc:ad2bfac9b593b3276ff750c8768d296be"><td class="mdescLeft">&#160;</td><td class="mdescRight">One IFCA-style clustered federated learning round (Ghosh et al.  <br /></td></tr>
 <tr class="separator:ad2bfac9b593b3276ff750c8768d296be"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7383777272eee52907826e5e72b75c54"><td class="memItemLeft" align="right" valign="top">List[<a class="el" href="classparticle_1_1Particle.html">Particle</a>]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a7383777272eee52907826e5e72b75c54">instantiateGroup</a> (int num, tuple c, Tuple[Tuple[int, int], Tuple[int, int]] frame, int target_idx)</td></tr>
-<tr class="memdesc:a7383777272eee52907826e5e72b75c54"><td class="mdescLeft">&#160;</td><td class="mdescRight">Instantiate a group of agents spawned uniformly within a frame.  <br /></td></tr>
-<tr class="separator:a7383777272eee52907826e5e72b75c54"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af00206e8934879284cdf460d56a1b34e"><td class="memItemLeft" align="right" valign="top">List[<a class="el" href="classparticle_1_1Particle.html">Particle</a>]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af00206e8934879284cdf460d56a1b34e">instantiateGroup</a> (int num, tuple c, Tuple[Tuple[int, int], Tuple[int, int]] frame, int target_idx, int true_cluster_id=-1, Tuple[float, float] cluster_bias_dir=None)</td></tr>
+<tr class="memdesc:af00206e8934879284cdf460d56a1b34e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Instantiate a group of agents spawned uniformly within a frame.  <br /></td></tr>
+<tr class="separator:af00206e8934879284cdf460d56a1b34e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2a4f5bb5bfbec0a19198bf099c26594"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af2a4f5bb5bfbec0a19198bf099c26594">_pick_unused_color</a> (used_colors)</td></tr>
 <tr class="memdesc:af2a4f5bb5bfbec0a19198bf099c26594"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pick the first palette colour not already in use (for a new cluster).  <br /></td></tr>
 <tr class="separator:af2a4f5bb5bfbec0a19198bf099c26594"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -137,9 +137,15 @@ Variables</h2></td></tr>
 <tr class="separator:a5da40cbb27d8d787255e74808d8134c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace1e8a3695077b6391c4c2d0fa5fc897"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ace1e8a3695077b6391c4c2d0fa5fc897">BLEND_LOCAL_NEW</a> = 0.75</td></tr>
 <tr class="separator:ace1e8a3695077b6391c4c2d0fa5fc897"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a817776b4b7ae101a745258ffd680d2bb"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a817776b4b7ae101a745258ffd680d2bb">BIAS_CLUSTER_FRACTION</a> = 0.7</td></tr>
+<tr class="separator:a817776b4b7ae101a745258ffd680d2bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a154f618f1f730b394a7e55147d87aa1b"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a154f618f1f730b394a7e55147d87aa1b">BIAS_MAG_LO</a> = 0.25</td></tr>
+<tr class="separator:a154f618f1f730b394a7e55147d87aa1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ea263f2544a113ecbb3cd05e69055bf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a6ea263f2544a113ecbb3cd05e69055bf">BIAS_MAG_HI</a> = 0.60</td></tr>
+<tr class="separator:a6ea263f2544a113ecbb3cd05e69055bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3b47c10176a58939f2bc2499ffefde8"><td class="memItemLeft" align="right" valign="top">slice&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ac3b47c10176a58939f2bc2499ffefde8">IDENTITY_SLICE</a> = slice(0, 2)</td></tr>
 <tr class="separator:ac3b47c10176a58939f2bc2499ffefde8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60e414500a6bca87c24e4761ead07ccf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a60e414500a6bca87c24e4761ead07ccf">MIGRATION_HYSTERESIS</a> = 0.5</td></tr>
+<tr class="memitem:a60e414500a6bca87c24e4761ead07ccf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a60e414500a6bca87c24e4761ead07ccf">MIGRATION_HYSTERESIS</a> = 0.6</td></tr>
 <tr class="separator:a60e414500a6bca87c24e4761ead07ccf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6cbd44c52b8820dec94ebb6b4d336bcf"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a6cbd44c52b8820dec94ebb6b4d336bcf">BEHAVIORAL_FORCE</a> = 30.0</td></tr>
 <tr class="separator:a6cbd44c52b8820dec94ebb6b4d336bcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -153,12 +159,14 @@ Variables</h2></td></tr>
 <tr class="separator:ab2055c4a0a111852e8ffac8606658de6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a69d24211741a1ca5db2e941db5197d0a"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#a69d24211741a1ca5db2e941db5197d0a">BLEND_LOCAL_MATURE</a> = 0.40</td></tr>
 <tr class="separator:a69d24211741a1ca5db2e941db5197d0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae1dc855c662353945e61dd153980ef2e"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#ae1dc855c662353945e61dd153980ef2e">EMERGENT_MODEL_WEIGHT</a> = 1.5</td></tr>
+<tr class="separator:ae1dc855c662353945e61dd153980ef2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af5b71d6db240a4aff1f13ece3c95d4e0"><td class="memItemLeft" align="right" valign="top">list&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceparticle.html#af5b71d6db240a4aff1f13ece3c95d4e0">CLUSTER_PALETTE</a></td></tr>
 <tr class="separator:af5b71d6db240a4aff1f13ece3c95d4e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="ad0e60e323fb6ffb3f0179fdd59dbce77" name="ad0e60e323fb6ffb3f0179fdd59dbce77"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad0e60e323fb6ffb3f0179fdd59dbce77">&#9670;&#160;</a></span>local_train()</h2>
+<a id="ac15999310cc56907f8a1ebda11a0efa3" name="ac15999310cc56907f8a1ebda11a0efa3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac15999310cc56907f8a1ebda11a0efa3">&#9670;&#160;</a></span>local_train()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -185,7 +193,13 @@ Variables</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">&#160;</td>
-          <td class="paramname"><em>learning_rate</em> = <code>0.1</code>&#160;</td>
+          <td class="paramname"><em>learning_rate</em> = <code>0.1</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname"><em>emergent_pull</em> = <code>(0.0,&#160;0.0)</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -198,18 +212,30 @@ Variables</h2></td></tr>
 <p>One local training step for a single agent (the cognitive update). </p>
 <pre class="fragment">Nudges the agent's learned heading @c model[0:2] toward its ideal direction —
 the true direction to its target corrupted by the agent's fixed non-IID bias,
-then blended with obstacle-avoidance — and refreshes the situational model
-dimensions: confidence [2], obstacle_pressure [3], local_loss [6] and
-drift_velocity [7]. The loss uses the *true* (unbiased) target direction so
-that federation correcting the bias is visible as a loss decrease.
+then blended with obstacle-avoidance AND any net emergent pull (attract/
+repel from neighbours) — and refreshes the situational model dimensions:
+confidence [2], obstacle_pressure [3], local_loss [6] and drift_velocity
+[7]. The loss uses the *true* (unbiased) target direction so that
+federation correcting the bias is visible as a loss decrease.
+
+Wiring the emergent pull into the ideal direction (not just into velocity,
+where apply_physics_rules already does it) means the LEARNED MODEL also
+reflects the physical push — direction_precision drops under
+attraction_enabled=True, decoupling the cognitive and physical contributions
+of the ablation.
 
 @param particle The Particle to train; mutated in place.
 @param current_target_pos (x, y) of this agent's personal inner target.
 @param obstacles List of (ox, oy, radius) obstacle circles to avoid.
 @param learning_rate Base step size for the heading update (scaled up under pressure).
+@param emergent_pull (ex, ey) net emergent force vector for this particle this
+    step. Direction is what matters — the vector is normalised to a unit
+    direction before being added to the ideal with @c EMERGENT_MODEL_WEIGHT.
+    Pass (0.0, 0.0) when attraction_enabled=False to keep behaviour
+    identical to the pre-emergent-model code.
 @return None — @p particle.model is updated in place.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00154">154</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00199">199</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -249,7 +275,7 @@ get 0.
 @param neighbor_radius Pixel radius defining the spatial neighbourhood.
 @return None.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00250">250</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00320">320</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -326,7 +352,7 @@ then advances velocities/positions and resolves hard obstacle and wall collision
     emergency anti-stacking repulsion remains — used to ablate the emergent physics.
 @return None.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00298">298</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00368">368</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -362,7 +388,7 @@ then advances velocities/positions and resolves hard obstacle and wall collision
 @return dict cluster_id -&gt; {size, avg_loss, avg_confidence, mean_model}, where
     @c mean_model is the element-wise mean 8-D model (None for empty clusters).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00462">462</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00532">532</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -399,7 +425,7 @@ reveal an incoherent cluster — directional disagreement among members can.
 @param members List of Particle agents in one cluster.
 @return float coherence in [-1, 1] (1.0 when fewer than two members).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00488">488</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00558">558</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -461,7 +487,7 @@ pick its cluster (argmin over k).
 @param max_dist Diagonal of the simulation area, used to normalise distance.
 @return float loss = 0.5 * geometric_loss + 0.5 * directional_loss.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00510">510</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00580">580</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -508,7 +534,7 @@ confidence (model[2]), with the heading [0:2] re-normalised to a unit vector.
 @return list of length @p n_clusters; each entry is a length-8 numpy array, or
     None for an empty cluster.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00540">540</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00610">610</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -581,12 +607,12 @@ that the logger reads — IFCA itself does not need it.
     cluster_ages, num_clusters, event, cooldown_counter), where @c transfers maps
     (src, dst) -&gt; migration count and @c event is None, 'split', or ('merge', dropped_id).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00566">566</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00636">636</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
-<a id="a7383777272eee52907826e5e72b75c54" name="a7383777272eee52907826e5e72b75c54"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7383777272eee52907826e5e72b75c54">&#9670;&#160;</a></span>instantiateGroup()</h2>
+<a id="af00206e8934879284cdf460d56a1b34e" name="af00206e8934879284cdf460d56a1b34e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af00206e8934879284cdf460d56a1b34e">&#9670;&#160;</a></span>instantiateGroup()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -612,9 +638,20 @@ that the logger reads — IFCA itself does not need it.
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int
-    &#160;</td>
-          <td class="paramname"><em>target_idx</em>&#160;</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>target_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int &#160;</td>
+          <td class="paramname"><em>true_cluster_id</em> = <code>-1</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Tuple[float, float] &#160;</td>
+          <td class="paramname"><em>cluster_bias_dir</em> = <code>None</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -629,9 +666,13 @@ that the logger reads — IFCA itself does not need it.
 @param c RGB colour tuple for the group.
 @param frame Spawn box ((x_min, x_max), (y_min, y_max)).
 @param target_idx Index of the cluster target this group initially chases.
+@param true_cluster_id Ground-truth latent label shared by all agents in this group.
+    -1 = no ground truth (purity metric will be N/A for this run).
+@param cluster_bias_dir Unit vector for this true cluster's shared bias direction.
+    When None, each agent's bias is fully random (legacy).
 @return List[Particle] the newly created agents.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00875">875</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00945">945</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -663,7 +704,7 @@ that the logger reads — IFCA itself does not need it.
 <pre class="fragment">@param used_colors Set/collection of RGB tuples currently assigned.
 @return RGB tuple — an unused palette colour, or grey if the palette is exhausted.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00910">910</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00989">989</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -812,6 +853,54 @@ that the logger reads — IFCA itself does not need it.
 
 </div>
 </div>
+<a id="a817776b4b7ae101a745258ffd680d2bb" name="a817776b4b7ae101a745258ffd680d2bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a817776b4b7ae101a745258ffd680d2bb">&#9670;&#160;</a></span>BIAS_CLUSTER_FRACTION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float particle.BIAS_CLUSTER_FRACTION = 0.7</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00066">66</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+
+</div>
+</div>
+<a id="a154f618f1f730b394a7e55147d87aa1b" name="a154f618f1f730b394a7e55147d87aa1b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a154f618f1f730b394a7e55147d87aa1b">&#9670;&#160;</a></span>BIAS_MAG_LO</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float particle.BIAS_MAG_LO = 0.25</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00067">67</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+
+</div>
+</div>
+<a id="a6ea263f2544a113ecbb3cd05e69055bf" name="a6ea263f2544a113ecbb3cd05e69055bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ea263f2544a113ecbb3cd05e69055bf">&#9670;&#160;</a></span>BIAS_MAG_HI</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float particle.BIAS_MAG_HI = 0.60</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00068">68</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+
+</div>
+</div>
 <a id="ac3b47c10176a58939f2bc2499ffefde8" name="ac3b47c10176a58939f2bc2499ffefde8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac3b47c10176a58939f2bc2499ffefde8">&#9670;&#160;</a></span>IDENTITY_SLICE</h2>
 
@@ -824,7 +913,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00059">59</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00074">74</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -835,12 +924,12 @@ that the logger reads — IFCA itself does not need it.
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">float particle.MIGRATION_HYSTERESIS = 0.5</td>
+          <td class="memname">float particle.MIGRATION_HYSTERESIS = 0.6</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00064">64</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00081">81</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -856,7 +945,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00066">66</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00083">83</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -872,7 +961,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00067">67</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00084">84</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -888,7 +977,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00068">68</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00085">85</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -904,7 +993,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00070">70</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00087">87</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -920,7 +1009,7 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00071">71</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00088">88</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -936,7 +1025,23 @@ that the logger reads — IFCA itself does not need it.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00072">72</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00089">89</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+
+</div>
+</div>
+<a id="ae1dc855c662353945e61dd153980ef2e" name="ae1dc855c662353945e61dd153980ef2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae1dc855c662353945e61dd153980ef2e">&#9670;&#160;</a></span>EMERGENT_MODEL_WEIGHT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float particle.EMERGENT_MODEL_WEIGHT = 1.5</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00096">96</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>
@@ -960,7 +1065,7 @@ that the logger reads — IFCA itself does not need it.
 <div class="line"><span class="lineno">    7</span>    (0, 255, 255),   <span class="comment"># cyan — 6th slot for MAX_CLUSTERS=6</span></div>
 <div class="line"><span class="lineno">    8</span>]</div>
 </div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00901">901</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="particle_8py_source.html#l00980">980</a> of file <a class="el" href="particle_8py_source.html">particle.py</a>.</p>
 
 </div>
 </div>

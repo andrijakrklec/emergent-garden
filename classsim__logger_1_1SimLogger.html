@@ -122,8 +122,8 @@ Static Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:adfbf918a4aea25ec2d0d1e40d42df9bc"><td class="memItemLeft" align="right" valign="top">None&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classsim__logger_1_1SimLogger.html#adfbf918a4aea25ec2d0d1e40d42df9bc">_write_terminal_log</a> (self, int round_num, int num_clusters, float inertia, float avg_conf, float avg_loss, float avg_peer, int total_mig, Optional[str] event, dict transfers, Dict[int, Dict] cluster_rows)</td></tr>
-<tr class="separator:adfbf918a4aea25ec2d0d1e40d42df9bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e7668b51892deca25820468f81c7d43"><td class="memItemLeft" align="right" valign="top">None&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classsim__logger_1_1SimLogger.html#a1e7668b51892deca25820468f81c7d43">_write_terminal_log</a> (self, int round_num, int num_clusters, float inertia, float avg_conf, float avg_loss, float avg_peer, float avg_dir_prec, float avg_spatial_prec, Optional[float] purity, int total_mig, Optional[str] event, dict transfers, Dict[int, Dict] cluster_rows)</td></tr>
+<tr class="separator:a1e7668b51892deca25820468f81c7d43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a19a29056f750781cdf4e7d1bfe7bd8e1"><td class="memItemLeft" align="right" valign="top">None&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classsim__logger_1_1SimLogger.html#a19a29056f750781cdf4e7d1bfe7bd8e1">_log</a> (self, str text)</td></tr>
 <tr class="separator:a19a29056f750781cdf4e7d1bfe7bd8e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -157,7 +157,7 @@ Protected Attributes</h2></td></tr>
     events.jsonl        — split / merge / explosion events, one JSON object per line
     sim_log.txt         — human-readable mirror of terminal output
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00066">66</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00150">150</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ab19640d598f9c72ecf35821ccf0bd654" name="ab19640d598f9c72ecf35821ccf0bd654"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab19640d598f9c72ecf35821ccf0bd654">&#9670;&#160;</a></span>__init__()</h2>
@@ -217,7 +217,7 @@ Protected Attributes</h2></td></tr>
     @param run_name Explicit run-folder name; when given it overrides the
         "run_&lt;timestamp&gt;_&lt;tags&gt;" default (used for repeated/batch runs).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00083">83</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00167">167</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -296,7 +296,7 @@ Protected Attributes</h2></td></tr>
     @param num_clusters Current number of clusters.
     @return None.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00166">166</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00252">252</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -329,7 +329,7 @@ Protected Attributes</h2></td></tr>
 <p>Record an explosion event so it appears as a marker in the plots. </p>
 <pre class="fragment">    @param round_num Round during which the explosion was triggered.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00284">284</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00397">397</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -355,7 +355,7 @@ Protected Attributes</h2></td></tr>
 
     @return None — files are written into the run directory.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00295">295</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00408">408</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -377,12 +377,12 @@ Protected Attributes</h2></td></tr>
 
 <p>Flush all file handles, render the final plots, then close everything. </p>
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00586">586</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00722">722</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
-<a id="adfbf918a4aea25ec2d0d1e40d42df9bc" name="adfbf918a4aea25ec2d0d1e40d42df9bc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adfbf918a4aea25ec2d0d1e40d42df9bc">&#9670;&#160;</a></span>_write_terminal_log()</h2>
+<a id="a1e7668b51892deca25820468f81c7d43" name="a1e7668b51892deca25820468f81c7d43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e7668b51892deca25820468f81c7d43">&#9670;&#160;</a></span>_write_terminal_log()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -435,6 +435,24 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>avg_dir_prec</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>avg_spatial_prec</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Optional[float]&#160;</td>
+          <td class="paramname"><em>purity</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>total_mig</em>, </td>
         </tr>
@@ -469,7 +487,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00613">613</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00749">749</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -507,7 +525,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00659">659</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00809">809</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -536,7 +554,7 @@ Protected Attributes</h2></td></tr>
 <div class="line">        <span class="stringliteral">&quot;peer_alignment&quot;</span>, <span class="stringliteral">&quot;rounds_stable&quot;</span>, <span class="stringliteral">&quot;local_loss&quot;</span>, <span class="stringliteral">&quot;drift_velocity&quot;</span>,</div>
 <div class="line">    ]</div>
 </div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00078">78</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00162">162</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -552,7 +570,7 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00101">101</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00185">185</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -568,7 +586,7 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00106">106</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00190">190</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -584,7 +602,7 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00107">107</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00191">191</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -608,7 +626,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00108">108</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00192">192</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -632,7 +650,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00114">114</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00198">198</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -656,7 +674,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00115">115</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00199">199</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -680,7 +698,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00116">116</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00200">200</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -704,7 +722,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00117">117</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00201">201</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -728,7 +746,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00118">118</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00202">202</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -752,7 +770,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00120">120</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00204">204</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -776,7 +794,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00132">132</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00217">217</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -800,7 +818,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00138">138</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00223">223</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
