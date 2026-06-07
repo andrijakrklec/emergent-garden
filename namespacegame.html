@@ -80,9 +80,6 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1Game.html">Game</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main-thread pygame front-end: renders snapshots and forwards input.  <a href="classgame_1_1Game.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimSnapshot.html">SimSnapshot</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Immutable, read-only view of simulation state handed to the GUI thread.  <a href="classgame_1_1SimSnapshot.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -98,6 +95,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae8eca15338464e2407a61645f7481ef6"><td class="memItemLeft" align="right" valign="top">Tuple[float, float, Dict, float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#ae8eca15338464e2407a61645f7481ef6">_load_force_config</a> (str config_path, Optional[str] preset_override=None)</td></tr>
 <tr class="memdesc:ae8eca15338464e2407a61645f7481ef6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load g_attract, g_repel and the optional pair_rules from merged config.  <br /></td></tr>
 <tr class="separator:ae8eca15338464e2407a61645f7481ef6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa6836084844a2331de51f05ab8ca1768"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#aa6836084844a2331de51f05ab8ca1768">apply_physics_rules</a> (List[Particle] particles, List[Tuple[int, int, int]] obstacles, float g_attract, float g_repel, float dt, dict rules=None, bool attraction_enabled=True)</td></tr>
+<tr class="memdesc:aa6836084844a2331de51f05ab8ca1768"><td class="mdescLeft">&#160;</td><td class="mdescRight">Integrate one physics tick over the agents (the physics 'system').  <br /></td></tr>
+<tr class="separator:aa6836084844a2331de51f05ab8ca1768"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
@@ -107,8 +107,6 @@ Variables</h2></td></tr>
 <tr class="separator:a52e414f3d541996531ba410dd4931cf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5fa2f50ba0fb2c5e3c033f6933b0a43"><td class="memItemLeft" align="right" valign="top">os&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a> = os.path.join(os.path.dirname(os.path.dirname(__file__)), &quot;config.json&quot;)</td></tr>
 <tr class="separator:ae5fa2f50ba0fb2c5e3c033f6933b0a43"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa26bca45a080558a66b458fa277b58a6"><td class="memItemLeft" align="right" valign="top">list&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegame.html#aa26bca45a080558a66b458fa277b58a6">CLUSTER_PALETTE</a></td></tr>
-<tr class="separator:aa26bca45a080558a66b458fa277b58a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
 <a id="a4739bdb7f1ee3f24f3c1a5aaa26a267d" name="a4739bdb7f1ee3f24f3c1a5aaa26a267d"></a>
@@ -148,7 +146,7 @@ Variables</h2></td></tr>
 <p>Resolve the layered configuration: master + emergent preset + per-run override. </p>
 <pre class="fragment">Three layers are merged, each overriding the previous:
   1. the master config.json (globals plus the @c emergent_preset selector);
-  2. the emergent preset it names (configs/emergent/&lt;name&gt;.json), if any;
+  2. the emergent preset it names (`configs/emergent/&lt;name&gt;.json`), if any;
   3. the per-run --config file (used by run_all.py), if different from master.
 The @c pair_rules table is deep-merged at each step; comment keys (those
 starting with '_') are dropped.
@@ -158,7 +156,7 @@ starting with '_') are dropped.
     (used by the --preset CLI flag to batch over presets).
 @return dict the fully merged configuration.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00051">51</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00057">57</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -202,9 +200,88 @@ them into internal units before use. Falls back to hardcoded defaults if the
 config is missing or malformed.
 
 @param config_path Path to the per-experiment config.
+@param preset_override If given, overrides the master's @c emergent_preset selector
+    (passed through to _load_merged_config; used by the --preset CLI flag).
 @return tuple (g_attract, g_repel, rules, force_scale) where @c rules maps (i, j) -&gt; float.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00107">107</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00113">113</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+
+</div>
+</div>
+<a id="aa6836084844a2331de51f05ab8ca1768" name="aa6836084844a2331de51f05ab8ca1768"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa6836084844a2331de51f05ab8ca1768">&#9670;&#160;</a></span>apply_physics_rules()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">def game.apply_physics_rules </td>
+          <td>(</td>
+          <td class="paramtype">List[Particle]&#160;</td>
+          <td class="paramname"><em>particles</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">List[Tuple[int, int, int]]&#160;</td>
+          <td class="paramname"><em>obstacles</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>g_attract</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>g_repel</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float&#160;</td>
+          <td class="paramname"><em>dt</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">dict &#160;</td>
+          <td class="paramname"><em>rules</em> = <code>None</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &#160;</td>
+          <td class="paramname"><em>attraction_enabled</em> = <code>True</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Integrate one physics tick over the agents (the physics 'system'). </p>
+<pre class="fragment">The simulation-side glue around the pure @ref physics force library: it
+loops over Particle objects, resolves each pair's force via
+@ref physics.pair_force (emergency repulsion + the standard gravity formula),
+adds soft-obstacle and model-directed behavioral pushes, then integrates
+velocities/positions and resolves hard obstacle and wall collisions.
+
+@param particles List of all Particle agents; positions/velocities mutated in place.
+@param obstacles List of (ox, oy, radius) obstacle circles.
+@param g_attract Default intra-cluster coefficient (negative attracts).
+@param g_repel Default inter-cluster coefficient (positive repels).
+@param dt Integration timestep in seconds.
+@param rules Optional dict (min(ci,cj), max(ci,cj)) -&gt; coefficient for per-pair forces.
+@param attraction_enabled If False, intra/inter-cluster forces are disabled and only the
+    emergency anti-stacking repulsion remains — used to ablate the emergent physics.
+@return None.
+</pre> 
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00153">153</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -221,7 +298,7 @@ config is missing or malformed.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00044">44</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00050">50</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -237,7 +314,7 @@ config is missing or malformed.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00046">46</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00052">52</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -253,31 +330,7 @@ config is missing or malformed.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00048">48</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
-
-</div>
-</div>
-<a id="aa26bca45a080558a66b458fa277b58a6" name="aa26bca45a080558a66b458fa277b58a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa26bca45a080558a66b458fa277b58a6">&#9670;&#160;</a></span>CLUSTER_PALETTE</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">list game.CLUSTER_PALETTE</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line"><span class="lineno">    1</span>=  [</div>
-<div class="line"><span class="lineno">    2</span>    PARTICLE_COLOR_RED,</div>
-<div class="line"><span class="lineno">    3</span>    PARTICLE_COLOR_YELLOW,</div>
-<div class="line"><span class="lineno">    4</span>    PARTICLE_COLOR_GREEN,</div>
-<div class="line"><span class="lineno">    5</span>    PARTICLE_COLOR_BLUE,</div>
-<div class="line"><span class="lineno">    6</span>    PARTICLE_COLOR_WHITE,</div>
-<div class="line"><span class="lineno">    7</span>    (0, 255, 255),   <span class="comment"># cyan — 6th slot for MAX_CLUSTERS=6</span></div>
-<div class="line"><span class="lineno">    8</span>]</div>
-</div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00145">145</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00054">54</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>

@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['local_5ftrain_0',['local_train',['../namespaceparticle.html#ac15999310cc56907f8a1ebda11a0efa3',1,'particle']]],
-  ['log_5fexplosion_1',['log_explosion',['../classsim__logger_1_1SimLogger.html#ae778435f56eb7ef9d88d19f9df8e3330',1,'sim_logger::SimLogger']]],
-  ['log_5fround_2',['log_round',['../classsim__logger_1_1SimLogger.html#abc7f4e7c336a3ce9f63a1dd78f9c0931',1,'sim_logger::SimLogger']]]
+  ['instantiate_5fgroup_0',['instantiate_group',['../namespacecfl.html#a321f8afa79c5302a252c3492248297d9',1,'cfl']]],
+  ['interaction_5fcoefficient_1',['interaction_coefficient',['../namespacephysics.html#a451c9b7028688e8e810a9414fdaa02cf',1,'physics']]]
 ];

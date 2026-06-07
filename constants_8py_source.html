@@ -79,7 +79,7 @@ $(function() {
 <div class="contents">
 <a href="constants_8py.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno"><a class="line" href="namespaceconstants.html">    1</a></span> </div>
 <div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="stringliteral">&quot;&quot;&quot;@file constants.py</span></div>
-<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="stringliteral">@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colours.</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="stringliteral">@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colors.</span></div>
 <div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="stringliteral">&quot;&quot;&quot;</span></div>
 <div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span> </div>
 <div class="line"><a id="l00006" name="l00006"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a108f8d6667d793d6fd19b1a5ea11bcc9">    6</a></span>PARTICLE_DEFAULT_SPAWN_NUM = 25</div>
@@ -93,45 +93,55 @@ $(function() {
 <div class="line"><a id="l00014" name="l00014"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a54a009c84bc7b18fa9a59d1af25b206b">   14</a></span>GUI_WIDTH = 380</div>
 <div class="line"><a id="l00015" name="l00015"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ab5963116b9016cc431991b08f41e1027">   15</a></span>GUI_BACKGROUND_COLOR = (30, 30, 30)</div>
 <div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span> </div>
-<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span><span class="comment"># ADVANCED CONTROLS</span></div>
-<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a76faff990fe9a09708c9aacf87e0d1dc">   18</a></span>FRAME_RATE = 60</div>
-<div class="line"><a id="l00019" name="l00019"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aa2d7d5e9020d3b7161e807dff7d32e40">   19</a></span>PARTICLE_LOSE_ENERGY = 0.98</div>
-<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span> </div>
-<div class="line"><a id="l00021" name="l00021"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aebc35ba8b98bbe6656a4255e48075e14">   21</a></span>PARTICLE_FORCE_LOWER_RANGE = 1</div>
-<div class="line"><a id="l00022" name="l00022"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a8a70c46acd6fe85bcbc7c7828aa5a0fb">   22</a></span>PARTICLE_FORCE_UPPER_RANGE = 100</div>
-<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span> </div>
-<div class="line"><a id="l00024" name="l00024"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a94fb3d9c44067a6639bb5fa743578514">   24</a></span>WALL_BOUNDARY = 25</div>
-<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span> </div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a6450d76ca7f3826d7dea819a0aef2f47">   26</a></span>PARTICLE_POWER_OF_DISTANCE = 1</div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span> </div>
-<div class="line"><a id="l00028" name="l00028"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aa883ee3224d6b984b32c435838d27f2e">   28</a></span>PARTICLE_MAX_SPEED = 60.0</div>
-<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
-<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span><span class="comment"># ALMOST NEVER CHANGES:</span></div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ab42cda4f9917c8d6eda8368265e31c93">   31</a></span>SCREEN_DIM = (SIM_WIDTH + GUI_WIDTH, SIM_HEIGHT)</div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a5ac7da66ffac7d13dd77369f29031144">   17</a></span>PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)</div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aefd6b26f16e4f7957cb79b2e5d664dc4">   18</a></span>PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)</div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ae52b3b06a9db29544ce16dfc3319bb75">   19</a></span>PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)</div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a0bee0748edc06f0b28aa58182cb92a5d">   20</a></span>PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a6a13fc611ffebdffb5f1f983fa375a29">   21</a></span>PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)</div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span> </div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span><span class="comment"># Per-cluster colour palette (index = cluster id).</span></div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a555b1c4652b1ae07bb2c7b5115ff49c9">   24</a></span>CLUSTER_PALETTE = [</div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span>    PARTICLE_COLOR_RED,</div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>    PARTICLE_COLOR_YELLOW,</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span>    PARTICLE_COLOR_GREEN,</div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>    PARTICLE_COLOR_BLUE,</div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>    PARTICLE_COLOR_WHITE,</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>    (0, 255, 255),   <span class="comment"># cyan — 6th slot for max_clusters=6</span></div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>]</div>
 <div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span> </div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a957205ae5197eea746b6b3442959e37f">   33</a></span>BACK_BLACK = (0, 0, 0)</div>
-<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span> </div>
-<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespaceconstants.html#af845e6d147f64d0f29b5744ac9d81f94">   35</a></span>PARTICLE_DEFAULT_RADIUS = 3</div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span><span class="comment"># ADVANCED CONTROLS</span></div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a76faff990fe9a09708c9aacf87e0d1dc">   34</a></span>FRAME_RATE = 60</div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aa2d7d5e9020d3b7161e807dff7d32e40">   35</a></span>PARTICLE_LOSE_ENERGY = 0.98</div>
 <div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
-<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a5ac7da66ffac7d13dd77369f29031144">   37</a></span>PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)</div>
-<div class="line"><a id="l00038" name="l00038"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aefd6b26f16e4f7957cb79b2e5d664dc4">   38</a></span>PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)</div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ae52b3b06a9db29544ce16dfc3319bb75">   39</a></span>PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)</div>
-<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a0bee0748edc06f0b28aa58182cb92a5d">   40</a></span>PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)</div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a6a13fc611ffebdffb5f1f983fa375a29">   41</a></span>PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)</div>
-<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span> </div>
-<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span><span class="comment"># THE SPAWNING MARGINS</span></div>
-<div class="line"><a id="l00044" name="l00044"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a038b93aede097f20e609b7153defbbc4">   44</a></span>margin_x, margin_y = (0.25, 0.25)</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ad6ea43887ef7063e5288b29b15839630">   45</a></span>center_x, center_y = (0.5, 0.5)</div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a43df8b5fb9a136fe1dd881b5bd7b97a6">   46</a></span>PARTICLE_DEFAULT_SPAWN_FRAME = (</div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>    (</div>
-<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>        int((center_x - margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>        int((center_x + margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)</div>
-<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>    ),</div>
-<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>    (</div>
-<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>        int((center_y - margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),</div>
-<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>        int((center_y + margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)</div>
-<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>    )</div>
-<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>)</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aebc35ba8b98bbe6656a4255e48075e14">   37</a></span>PARTICLE_FORCE_LOWER_RANGE = 1</div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a8a70c46acd6fe85bcbc7c7828aa5a0fb">   38</a></span>PARTICLE_FORCE_UPPER_RANGE = 100</div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a94fb3d9c44067a6639bb5fa743578514">   40</a></span>WALL_BOUNDARY = 25</div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span> </div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a6450d76ca7f3826d7dea819a0aef2f47">   42</a></span>PARTICLE_POWER_OF_DISTANCE = 1</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span> </div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno"><a class="line" href="namespaceconstants.html#aa883ee3224d6b984b32c435838d27f2e">   44</a></span>PARTICLE_MAX_SPEED = 60.0</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span><span class="comment"># ALMOST NEVER CHANGES:</span></div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ab42cda4f9917c8d6eda8368265e31c93">   47</a></span>SCREEN_DIM = (SIM_WIDTH + GUI_WIDTH, SIM_HEIGHT)</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span> </div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a957205ae5197eea746b6b3442959e37f">   49</a></span>BACK_BLACK = (0, 0, 0)</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span> </div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="namespaceconstants.html#af845e6d147f64d0f29b5744ac9d81f94">   51</a></span>PARTICLE_DEFAULT_RADIUS = 3</div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span> </div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span><span class="comment"># THE SPAWNING MARGINS</span></div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a038b93aede097f20e609b7153defbbc4">   54</a></span>margin_x, margin_y = (0.25, 0.25)</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno"><a class="line" href="namespaceconstants.html#ad6ea43887ef7063e5288b29b15839630">   55</a></span>center_x, center_y = (0.5, 0.5)</div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno"><a class="line" href="namespaceconstants.html#a43df8b5fb9a136fe1dd881b5bd7b97a6">   56</a></span>PARTICLE_DEFAULT_SPAWN_FRAME = (</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>    (</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>        int((center_x - margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>        int((center_x + margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>    ),</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>    (</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>        int((center_y - margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>        int((center_y + margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>    )</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>)</div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

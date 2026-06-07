@@ -92,9 +92,9 @@ Functions</h2></td></tr>
 <tr class="separator:abc31fee475693041759af7372566a162"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memItemLeft" align="right" valign="top">str&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#adebaf2b17a7e248e4dfa5a16be9ad199">_delta_arrow</a> (float current, float previous, float threshold=0.005)</td></tr>
 <tr class="separator:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memItemLeft" align="right" valign="top">Optional[float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#aa50ccafe9a3af8f3098e174a8c75ed38">_cluster_purity</a> (particles)</td></tr>
-<tr class="memdesc:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>.  <br /></td></tr>
-<tr class="separator:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af386787a1d719acad28f37321dea11d8"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#af386787a1d719acad28f37321dea11d8">_cluster_purity</a> (particles)</td></tr>
+<tr class="memdesc:af386787a1d719acad28f37321dea11d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>.  <br /></td></tr>
+<tr class="separator:af386787a1d719acad28f37321dea11d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#a7934c4f01d5c9bb176c12f5d7886e83a">_spatial_precision</a> (particle, float max_dist)</td></tr>
 <tr class="memdesc:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="mdescLeft">&#160;</td><td class="mdescRight">How close a particle is to its target, in [0, 1] (1 = at the target).  <br /></td></tr>
 <tr class="separator:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -207,8 +207,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="aa50ccafe9a3af8f3098e174a8c75ed38" name="aa50ccafe9a3af8f3098e174a8c75ed38"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa50ccafe9a3af8f3098e174a8c75ed38">&#9670;&#160;</a></span>_cluster_purity()</h2>
+<a id="af386787a1d719acad28f37321dea11d8" name="af386787a1d719acad28f37321dea11d8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af386787a1d719acad28f37321dea11d8">&#9670;&#160;</a></span>_cluster_purity()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -217,7 +217,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"> Optional[float] sim_logger._cluster_purity </td>
+          <td class="memname"> float sim_logger._cluster_purity </td>
           <td>(</td>
           <td class="paramtype">&#160;</td>
           <td class="paramname"><em>particles</em></td><td>)</td>
@@ -241,11 +241,8 @@ drives it toward 1.0 by discovering the latent bias structure, while
 individual learning leaves @c cluster_id pinned at the random init so purity
 hovers near 1/K.
 
-Returns None when no particle carries a ground-truth label (legacy runs);
-callers should treat that as N/A rather than logging a fake 1.0.
-
 @param particles List of Particle agents.
-@return float in [0, 1] or None.
+@return float in [0, 1] (0.0 for an empty list).
 </pre> 
 <p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00069">69</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
@@ -294,10 +291,10 @@ forces (low spatial_prec) — the two precisions decouple the cognitive and
 physical errors.
 
 @param particle A Particle with @c x, @c y, @c _target_x, @c _target_y.
-@param max_dist Sim diagonal (normaliser; same one used by local_loss).
+@param max_dist Sim diagonal (normalizer; same one used by local_loss).
 @return float in [0, 1].
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00102">102</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00093">93</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>
@@ -338,7 +335,7 @@ individual learning under non-IID clients.
 @param particle A Particle with @c x, @c y, @c _target_x, @c _target_y, @c model.
 @return float in [0, 1].
 </pre> 
-<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00122">122</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="sim__logger_8py_source.html#l00113">113</a> of file <a class="el" href="sim__logger_8py_source.html">sim_logger.py</a>.</p>
 
 </div>
 </div>

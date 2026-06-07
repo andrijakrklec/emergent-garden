@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.6"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Emergent Garden — Clustered Federated Learning: src/sim_logger.py File Reference</title>
+<title>Emergent Garden — Clustered Federated Learning: src/utils/sim_logger.py File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,7 +70,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_313caf1132e152dd9b58bea13a4052ca.html">utils</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -107,9 +107,9 @@ Functions</h2></td></tr>
 <tr class="separator:abc31fee475693041759af7372566a162"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memItemLeft" align="right" valign="top">str&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#adebaf2b17a7e248e4dfa5a16be9ad199">sim_logger._delta_arrow</a> (float current, float previous, float threshold=0.005)</td></tr>
 <tr class="separator:adebaf2b17a7e248e4dfa5a16be9ad199"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memItemLeft" align="right" valign="top">Optional[float]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#aa50ccafe9a3af8f3098e174a8c75ed38">sim_logger._cluster_purity</a> (particles)</td></tr>
-<tr class="memdesc:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>.  <br /></td></tr>
-<tr class="separator:aa50ccafe9a3af8f3098e174a8c75ed38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af386787a1d719acad28f37321dea11d8"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#af386787a1d719acad28f37321dea11d8">sim_logger._cluster_purity</a> (particles)</td></tr>
+<tr class="memdesc:af386787a1d719acad28f37321dea11d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clustering purity of predicted <code>cluster_id</code> against ground-truth <code>_true_cluster_id</code>.  <br /></td></tr>
+<tr class="separator:af386787a1d719acad28f37321dea11d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesim__logger.html#a7934c4f01d5c9bb176c12f5d7886e83a">sim_logger._spatial_precision</a> (particle, float max_dist)</td></tr>
 <tr class="memdesc:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="mdescLeft">&#160;</td><td class="mdescRight">How close a particle is to its target, in [0, 1] (1 = at the target).  <br /></td></tr>
 <tr class="separator:a7934c4f01d5c9bb176c12f5d7886e83a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -124,11 +124,11 @@ Variables</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Per-round CSV/JSONL logging and matplotlib visualisation for the CFL simulation. </p>
-<p>Usage (in <a class="el" href="game_8py.html" title="Simulation orchestration and the pygame GUI.">game.py</a>): from src.sim_logger import SimLogger self.logger = SimLogger(log_dir="logs")</p>
-<h1><a class="anchor" id="autotoc_md41"></a>
+<p>Usage (in <a class="el" href="game_8py.html" title="Simulation engine: state, the physics/federation step loop, and snapshots.">game.py</a>): from src.utils.sim_logger import SimLogger self.logger = SimLogger(log_dir="logs")</p>
+<h1><a class="anchor" id="autotoc_md49"></a>
 Inside run_cfl_round call-site:</h1>
 <p>self.logger.log_round( round_num = self.cfl_round_counter, particles = self.all_particles, kmeans = self.kmeans, cluster_targets = self.cluster_targets, transfers = transfers, event = event, num_clusters = self.num_clusters, )</p>
-<h1><a class="anchor" id="autotoc_md42"></a>
+<h1><a class="anchor" id="autotoc_md50"></a>
 On exit / whenever you want the plots:</h1>
 <p>self.logger.plot_all() </p>
 

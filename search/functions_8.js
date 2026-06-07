@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['quit_0',['quit',['../classgame_1_1Game.html#a2ff36b04f5247f67d37b15367926d85f',1,'game::Game']]]
+  ['main_0',['main',['../namespacerounds__plotter.html#a7f82a5e76d14426b3088f31a084a33cb',1,'rounds_plotter']]]
 ];

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.6"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Emergent Garden — Clustered Federated Learning: run_all.py File Reference</title>
+<title>Emergent Garden — Clustered Federated Learning: tools/run_all.py File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -68,6 +68,10 @@ $(function() {
 </div>
 </div>
 
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_4eeb864c4eec08c7d6b9d3b0352cfdde.html">tools</a></li>  </ul>
+</div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
@@ -77,7 +81,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>Launch the 2x2 ablation: all four configs as separate processes.  
+<p>Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly.  
 <a href="#details">More...</a></p>
 
 <p><a href="run__all_8py_source.html">Go to the source code of this file.</a></p>
@@ -91,15 +95,32 @@ Namespaces</h2></td></tr>
 Variables</h2></td></tr>
 <tr class="memitem:aba123f421116eaad8077c66c836c0e97"><td class="memItemLeft" align="right" valign="top">list&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#aba123f421116eaad8077c66c836c0e97">run_all.CONFIGS</a></td></tr>
 <tr class="separator:aba123f421116eaad8077c66c836c0e97"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac57c30e2134e6f9f471f6b1dcd19b752"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#ac57c30e2134e6f9f471f6b1dcd19b752">run_all.RUNS</a> = 10</td></tr>
+<tr class="separator:ac57c30e2134e6f9f471f6b1dcd19b752"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5a4a4471ee489ce61a161ce313667d0d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#a5a4a4471ee489ce61a161ce313667d0d">run_all.runs</a> = RUNS</td></tr>
+<tr class="separator:a5a4a4471ee489ce61a161ce313667d0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a1e7621be4a2087fdfd71d98c723d3d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#a3a1e7621be4a2087fdfd71d98c723d3d">run_all.try</a> :</td></tr>
+<tr class="separator:a3a1e7621be4a2087fdfd71d98c723d3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1cd994783783c59c4f4053a59c5f8cad"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#a1cd994783783c59c4f4053a59c5f8cad">run_all.root</a> = Path(__file__).parent.parent</td></tr>
+<tr class="separator:a1cd994783783c59c4f4053a59c5f8cad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa19158266508ff01bd730fe71b3653cb"><td class="memItemLeft" align="right" valign="top">f&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#aa19158266508ff01bd730fe71b3653cb">run_all.nn</a> = f&quot;{i:02d}&quot;</td></tr>
+<tr class="separator:aa19158266508ff01bd730fe71b3653cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8873c261b4b16d0fdaf9dd2ff06b948"><td class="memItemLeft" align="right" valign="top">list&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#ae8873c261b4b16d0fdaf9dd2ff06b948">run_all.procs</a> = []</td></tr>
 <tr class="separator:ae8873c261b4b16d0fdaf9dd2ff06b948"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa2db3be76ccdaeb4bedc5d0a5d3bb081"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#aa2db3be76ccdaeb4bedc5d0a5d3bb081">run_all.name</a> = Path(cfg).stem</td></tr>
+<tr class="separator:aa2db3be76ccdaeb4bedc5d0a5d3bb081"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19286052df0b0e2ea8d95eb8caf5cb93"><td class="memItemLeft" align="right" valign="top">f&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#a19286052df0b0e2ea8d95eb8caf5cb93">run_all.log_dir</a> = f&quot;logs/{name}&quot;</td></tr>
+<tr class="separator:a19286052df0b0e2ea8d95eb8caf5cb93"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac70058942afae33b21abd2a2d80373ba"><td class="memItemLeft" align="right" valign="top">f&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#ac70058942afae33b21abd2a2d80373ba">run_all.run_name</a> = f&quot;{name}_run{nn}&quot;</td></tr>
+<tr class="separator:ac70058942afae33b21abd2a2d80373ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a624ed663f0ce0261b0e3887a51d200d7"><td class="memItemLeft" align="right" valign="top">subprocess&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacerun__all.html#a624ed663f0ce0261b0e3887a51d200d7">run_all.p</a></td></tr>
 <tr class="separator:a624ed663f0ce0261b0e3887a51d200d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Launch the 2x2 ablation: all four configs as separate processes. </p>
-<p>Each subprocess opens its own pygame window and writes logs to a separate run directory, so the CFL on/off x emergent on/off configurations can be compared side by side.</p>
-<p>Usage: python <a class="el" href="run__all_8py.html" title="Launch the 2x2 ablation: all four configs as separate processes.">run_all.py</a> </p>
+<div class="textblock"><p>Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly. </p>
+<p>Each repetition launches all four configurations concurrently (one pygame window each), then waits for that batch of four to finish before starting the next repetition. Every run is written to its own folder: </p><pre class="fragment">`logs/&lt;config&gt;/&lt;config&gt;_run&lt;NN&gt;/`
+</pre><p> so the repeated runs of each configuration are grouped together for averaging.</p>
+<p>Usage (from the repo root): python <a class="el" href="run__all_8py.html" title="Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly.">tools/run_all.py</a> # RUNS repetitions (default below) python <a class="el" href="run__all_8py.html" title="Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly.">tools/run_all.py</a> 5 # override: 5 repetitions </p>
 
 <p class="definition">Definition in file <a class="el" href="run__all_8py_source.html">run_all.py</a>.</p>
 </div></div><!-- contents -->

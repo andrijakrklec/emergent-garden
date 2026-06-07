@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['quit_0',['quit',['../classgame_1_1Game.html#a2ff36b04f5247f67d37b15367926d85f',1,'game::Game']]]
+  ['quit_0',['quit',['../classgui_1_1Game.html#a0087d8460429835554f0fdbb70405c7d',1,'gui::Game']]]
 ];

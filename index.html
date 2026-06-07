@@ -101,10 +101,10 @@ Sadržaj / Table of contents</h1>
 Sažetak / Abstract</h1>
 <p>**(HR)** Razumijevanje izvirućeg ponašanja u višeagentskim sustavima predstavlja značajan izazov u području raspodijeljenih inteligentnih sustava. Ovaj projekt modelira <b>dvosmjernu povezanost</b> između dvije razine sustava:</p>
 <ul>
-<li><b>Kognitivna razina</b> — svaki agent uči vlastiti model, a modeli se <b>spontano dijele u grozdove (klastere)</b> i agregiraju putem federalnog učenja.</li>
+<li><b>Kognitivna razina</b> — svaki agent trenira vlastiti model, a modeli se agregiraju unutar grozdova (klastera) putem federalnog učenja.</li>
 <li><b>Fizikalna razina</b> — agenti se kreću u 2D prostoru, međusobno se privlače i odbijaju, zaobilaze prepreke i odbijaju se od zidova.</li>
 </ul>
-<p>Iz interakcije te dvije razine — naučeni model utječe na gibanje, a gibanje i prostorno susjedstvo natrag utječu na model i pripadnost grozdu — nastaju <b>složeni kolektivni obrasci koji nisu unaprijed programirani</b>, već proizlaze iz jednostavnih pravila na razini pojedinačnog agenta.</p>
+<p>Iz interakcije te dvije razine — naučeni model utječe na gibanje, a prostorno pozicioniranje povratno utječe na model i pripadnost grozdu — nastaju <b>složeni kolektivni obrasci koji nisu unaprijed programirani</b>, već proizlaze iz jednostavnih pravila na razini pojedinačnog agenta.</p>
 <p>**(EN)** This project is a runnable, visual realization of the thesis: a swarm of particles ("agents") where each agent runs <b>local model training</b> and the swarm performs <b>Clustered Federated Learning (CFL)</b> using an <b>IFCA</b>-style algorithm (Ghosh et al., 2020). Clusters form, <b>split, and merge spontaneously</b> based on what the agents learn. The learned model feeds back into each agent's physical motion, and the physical motion feeds back into the learning — a closed bidirectional loop whose emergent collective patterns are the object of study.</p>
 <p>The simulation is instrumented end-to-end: every federation round is logged to CSV and rendered into comparison plots, and a built-in <b>2×2 ablation</b> (CFL on/off × emergent physics on/off) isolates the contribution of each coupling direction.</p>
 <hr  />
@@ -112,17 +112,17 @@ Sažetak / Abstract</h1>
 Teorijske osnove / Theoretical foundations</h1>
 <h2><a class="anchor" id="autotoc_md7"></a>
 1. Federalno učenje / Federated Learning</h2>
-<p>**(HR)** Federalno učenje je pristup raspodijeljenom strojnom učenju u kojem više "klijenata" uči lokalne modele na vlastitim podacima, a zajednički model nastaje <b>agregacijom</b> (npr. usrednjavanjem) lokalnih modela, bez razmjene sirovih podataka. Ključni izazov su <b>non-IID podaci</b>: svaki klijent vidi sustavno drugačiju distribuciju.</p>
-<p>**(EN)** In this simulation each particle is a federated <em>client</em>. Its "data" is the geometry it experiences — direction to its personal target, obstacle pressure, neighborhood. Crucially, each particle is born with a fixed <b>non-IID directional bias</b> (the <code>_local_bias</code> vector in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>): it <em>systematically misperceives</em> the ideal heading. A single agent learning alone can never average this bias away; <b>federation across a cluster cancels it</b>, which is precisely why CFL improves the loss metric and solo learning does not.</p>
+<p>**(HR)** Federalno učenje je pristup raspodijeljenom strojnom učenju u kojem sudionici (klijenti) treniraju lokalne modele na vlastitim podacima, a zajednički model nastaje <b>agregacijom</b> (npr. prosjekom) lokalnih modela, bez razmjene sirovih podataka. Ključni izazov su <b>non-IID podaci</b>: svaki klijent vidi sustavno drugačiju distribuciju.</p>
+<p>**(EN)** In this simulation each particle is a federated <em>client</em>. Its "data" is the geometry it experiences — direction to its personal target, obstacle pressure, neighborhood. Crucially, each particle is born with a <b>non-IID directional bias</b> (the <code>_local_bias</code> vector in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>): it <em>systematically misperceives</em> the ideal heading. A single agent learning alone can never average this bias away; <b>federation across a cluster cancels it</b>, which is why CFL should improve the loss metric.</p>
 <h2><a class="anchor" id="autotoc_md8"></a>
 2. Grupiranje u grozdove / Clustering — IFCA</h2>
-<p>**(HR)** Kada klijenti pripadaju različitim "skupinama" s različitim optimalnim modelima, jedan globalni model nije dovoljan. <b>Grozdno (klasterirano) federalno učenje</b> rješava to tako da klijente grupira i agregira model <b>po grozdu</b>. Ovdje se koristi <b>IFCA</b> (<em>Iterative Federated Clustering Algorithm</em>): svaki klijent sam bira grozd čiji mu emitirani model daje najmanji gubitak.</p>
-<p>**(EN)** IFCA replaces a fixed assignment with an <b>argmin-loss assignment</b>: every round, each cluster broadcasts an aggregated model θ_k; each particle evaluates <em>every</em> θ_k against its own situation and joins the cluster with the lowest loss (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>run_cfl_round</code></a>). The number of clusters is not fixed — clusters <b>split</b> when their members disagree and <b>merge</b> when they become redundant (<code>MIN_CLUSTERS = 2</code>, <code>MAX_CLUSTERS = 6</code>).</p>
+<p>**(HR)** Kada klijenti pripadaju različitim "skupinama" s različitim optimalnim modelima, jedan globalni model nije dovoljan. **(Klasterirano) federalno učenje u grozdovima** rješava to tako da klijente grupira i agregira model <b>po grozdu</b>. Ovdje se koristi <b>IFCA</b> (<em>Iterative Federated Clustering Algorithm</em>): svaki klijent sam bira grozd čiji mu emitirani model daje najmanji gubitak.</p>
+<p>**(EN)** IFCA replaces a fixed assignment with an <b>argmin-loss assignment</b>: every round, each cluster broadcasts an aggregated model θ_k; each particle evaluates <em>every</em> θ_k against its own situation and joins the cluster with the lowest loss (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py"><code>run_cfl_round</code></a>). The number of clusters is not fixed — clusters <b>split</b> when their members disagree and <b>merge</b> when they become redundant (<code>MIN_CLUSTERS = 2</code>, <code>MAX_CLUSTERS = 6</code>).</p>
 <h2><a class="anchor" id="autotoc_md9"></a>
 3. Izviruće ponašanje / Emergent behavior</h2>
-<p>**(HR)** Izviruće (emergentno) ponašanje označava složene kolektivne obrasce koji nisu eksplicitno programirani, nego nastaju iz jednostavnih lokalnih pravila i interakcija među agentima. U ovom sustavu nijedno pravilo ne nalaže "formiraj
-jato" ili "podijeli grozd na dva" — ti obrasci <b>izviru</b> iz kombinacije privlačenja/odbijanja, izbjegavanja prepreka i federalne dinamike učenja.</p>
-<p>**(EN)** The emergent layer descends from the original <em>Emergent Garden</em> particle sandbox (see Credits). Simple per-pair attraction/repulsion rules (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>apply_physics_rules</code></a>) produce flocking, splitting, and reorganization that no single rule encodes.</p>
+<p>**(HR)** Izviruće (emergentno) ponašanje označava složene kolektivne obrasce koji nisu eksplicitno programirani, nego nastaju iz jednostavnih lokalnih pravila i interakcija među agentima. U ovom sustavu pravila ne nalažu "formiraj
+jato" — ti obrasci <b>izviru</b> iz kombinacije privlačenja/odbijanja, izbjegavanja prepreka i federalne dinamike učenja.</p>
+<p>**(EN)** The emergent layer descends from the original <em>Emergent Garden</em> particle sandbox (see Credits). Simple per-pair attraction/repulsion rules (<code>apply_physics_rules</code> in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>, built on the pure <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py"><code>physics.py</code></a> force library) produce flocking, splitting, and reorganization that no single rule encodes.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md11"></a>
 Arhitektura sustava / System architecture</h1>
@@ -151,11 +151,11 @@ Kognitivna domena / Cognitive domain</h2>
 <p>The cognitive domain runs two processes:</p>
 <ul>
 <li><b>Local training</b> — <code>local_train()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>): each agent nudges its heading toward its (bias-corrupted) ideal direction, blended with obstacle avoidance, and updates confidence/pressure/loss.</li>
-<li><b>Federation</b> — <code>run_cfl_round()</code>: the IFCA round described below.</li>
+<li><b>Federation</b> — <code>run_cfl_round()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py"><code>cfl.py</code></a>): the IFCA round described below.</li>
 </ul>
 <h2><a class="anchor" id="autotoc_md13"></a>
 Fizikalna domena / Physical domain</h2>
-<p><code>apply_physics_rules()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>) integrates motion each physics tick:</p>
+<p><code>apply_physics_rules()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>) integrates motion each physics tick, delegating the force math to the pure <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py"><code>physics.py</code></a> library:</p>
 <ul>
 <li><b>Inter-agent forces</b> — attraction/repulsion governed by cluster membership and the per-pair <b>rules matrix</b> (intra-cluster = diagonal, inter-cluster = off-diagonal).</li>
 <li><b>Emergency repulsion</b> — always on, prevents agents from stacking.</li>
@@ -164,10 +164,10 @@ Fizikalna domena / Physical domain</h2>
 </ul>
 <h2><a class="anchor" id="autotoc_md14"></a>
 Threading model</h2>
-<p>The cognitive/physical simulation and the GUI run on <b>separate threads</b> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>):</p>
+<p>The cognitive/physical simulation and the GUI run on <b>separate threads</b>:</p>
 <ul>
-<li><code>SimulationThread</code> (daemon) owns <em>all</em> state and steps physics at <code>PHYSICS_HZ = 60</code>.</li>
-<li><code>Game</code> (main thread) renders at <code>FRAME_RATE = 60</code> by reading an immutable <code>SimSnapshot</code> under a lock, and sends user actions back through a <code>queue.Queue</code>.</li>
+<li><code>SimulationThread</code> (daemon, <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>) owns <em>all</em> state and steps physics at <code>PHYSICS_HZ = 60</code>.</li>
+<li><code>Game</code> (main thread, <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/gui.py"><code>gui.py</code></a>) renders at <code>FRAME_RATE = 60</code> by reading an immutable <code>SimSnapshot</code> under a lock, and sends user actions back through a <code>queue.Queue</code>.</li>
 </ul>
 <p>This keeps the physics loop deterministic and decoupled from rendering/input latency.</p>
 <hr  />
@@ -187,7 +187,7 @@ Dvosmjerna povezanost / Bidirectional coupling</h1>
 <div class="line">         FIZIKALNA DOMENA / PHYSICAL DOMAIN</div>
 <div class="line">     position · velocity · collisions · neighborhoods</div>
 </div><!-- fragment --><p><b>Cognitive → Physical</b> (the model drives motion):</p><ul>
-<li>The learned heading <code>model[0:2]</code>, scaled by <code>confidence</code> (<code>model[2]</code>) and amplified by <code>obstacle_pressure</code>, becomes a <b>behavioral force</b> (<code>BEHAVIORAL_FORCE = 30.0</code>, in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>).</li>
+<li>The learned heading <code>model[0:2]</code>, scaled by <code>confidence</code> (<code>model[2]</code>) and amplified by <code>obstacle_pressure</code>, becomes a <b>behavioral force</b> (<code>BEHAVIORAL_FORCE = 30.0</code>, a <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py"><code>cfl_params.py</code></a> tunable applied in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>).</li>
 <li>An agent's <code>cluster_id</code> selects which <b>attraction/repulsion rule</b> applies to every pairwise interaction.</li>
 </ul>
 <p><b>Physical → Cognitive</b> (motion reshapes the model and clustering):</p><ul>
@@ -199,11 +199,11 @@ Dvosmjerna povezanost / Bidirectional coupling</h1>
 <hr  />
 <h1><a class="anchor" id="autotoc_md18"></a>
 Mehanizam grozdne agregacije / Cluster aggregation (IFCA)</h1>
-<p>A federation round fires every <code>cluster_update_interval = 200</code> physics steps (≈3.3 s). <code>run_cfl_round()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>) performs:</p>
+<p>A federation round fires every <code>cluster_update_interval</code> physics steps. <code>run_cfl_round()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py"><code>cfl.py</code></a>) performs:</p>
 <ol type="1">
 <li><b>Broadcast</b> — build each cluster's model θ_k as a <b>confidence-weighted mean</b> of its members (<code>_compute_cluster_models</code>). Empty clusters get a seed vector pointing from center toward their target.</li>
 <li><b>Assignment (argmin loss)</b> — each agent scores every θ_k via <code>_ifca_score</code> (geometric distance + directional alignment to that cluster's target) and joins the lowest-loss cluster.</li>
-<li><b>Hysteresis</b> — an agent only switches if the new cluster is at least <code>MIGRATION_HYSTERESIS = 0.5</code> (50%) better, preventing flip-flopping between near-equivalent clusters.</li>
+<li><b>Hysteresis</b> — an agent only switches if the new cluster is at least <code>MIGRATION_HYSTERESIS = 0.6</code> (60%) better, preventing flip-flopping between near-equivalent clusters.</li>
 <li><b>Aggregation with age-adaptive blend</b> — members blend toward θ_k. Newborn clusters keep more local state (<code>BLEND_LOCAL_NEW = 0.75</code>) and mature over <code>BLEND_MATURITY_ROUNDS = 15</code> toward <code>BLEND_LOCAL_MATURE = 0.40</code>, so a fresh split doesn't instantly re-merge.</li>
 <li><b>Straggler rescue</b> — agents with high loss and near-zero drift (stuck) are reassigned to the nearest cluster target.</li>
 <li><b>Restructuring</b> (after a cooldown):<ul>
@@ -212,6 +212,7 @@ Mehanizam grozdne agregacije / Cluster aggregation (IFCA)</h1>
 </ul>
 </li>
 </ol>
+<p>All thresholds and weights above are defined in <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py"><code>cfl_params.py</code></a> and read through getter functions (e.g. <code>get_split_loss_threshold()</code>).</p>
 <blockquote class="doxtable">
 <p>&zwj;<b>Why IFCA and not plain KMeans?</b> Earlier versions used KMeans on the identity vectors (see commit <code>changed kmeans to ifca for better clustering</code>). Under IFCA, assignment is driven by <em>predictive loss under each broadcast model</em> rather than raw feature distance, which clusters the biased agents far more cleanly. A KMeans fit is still run at the end purely to preserve the <code>.inertia_</code> / <code>.n_clusters</code> contract that the logger reads. </p>
 </blockquote>
@@ -225,25 +226,35 @@ Code-level technical reference</h1>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/main.py"><code>main.py</code></a>   </td><td class="markdownTableBodyNone">Entry point. Parses <code>--config</code>, constructs <code>Game</code>, runs the loop.    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>src/game.py</code></a>   </td><td class="markdownTableBodyNone"><code>SimulationThread</code> (all state + physics) and <code>Game</code> (pygame GUI/render/input). Config loading and merging.    </td></tr>
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/gui.py"><code>src/gui.py</code></a>   </td><td class="markdownTableBodyNone"><code>Game</code> — the pygame front-end: renders <code>SimSnapshot</code>s and forwards input.    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>src/particle.py</code></a>   </td><td class="markdownTableBodyNone"><code>Particle</code> model, <code>local_train</code>, <code>update_peer_alignment</code>, <code>apply_physics_rules</code>, and the IFCA round <code>run_cfl_round</code>.    </td></tr>
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>src/game.py</code></a>   </td><td class="markdownTableBodyNone"><code>SimulationThread</code> (all sim state + the physics/federation step loop), <code>SimSnapshot</code>, the <code>apply_physics_rules</code> tick, and config loading/merging.    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/sim_logger.py"><code>src/sim_logger.py</code></a>   </td><td class="markdownTableBodyNone"><code>SimLogger</code> — per-round CSV/JSONL logging and matplotlib plot generation.    </td></tr>
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>src/particle.py</code></a>   </td><td class="markdownTableBodyNone"><code>Particle</code> model, <code>local_train</code> (cognitive update), and <code>update_peer_alignment</code>.    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/constants.py"><code>src/constants.py</code></a>   </td><td class="markdownTableBodyNone">Simulation dimensions, frame rate, particle/physics constants, colors.    </td></tr>
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py"><code>src/cfl.py</code></a>   </td><td class="markdownTableBodyNone">IFCA federation: <code>run_cfl_round</code> (+ merge/split helpers), <code>compute_cluster_stats</code>, and <code>instantiate_group</code>.    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/run_all.py"><code>run_all.py</code></a>   </td><td class="markdownTableBodyNone">Launches the four ablation configs as parallel processes.    </td></tr>
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py"><code>src/cfl_params.py</code></a>   </td><td class="markdownTableBodyNone">CFL/IFCA tunables (split/merge thresholds, blend schedule, bias, hysteresis) exposed via getter functions.    </td></tr>
 <tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py"><code>src/physics.py</code></a>   </td><td class="markdownTableBodyNone">Pure, dependency-free force library: gravity, emergency repulsion, attraction/repulsion coefficient, obstacle push, velocity integration.    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/constants.py"><code>src/constants.py</code></a>   </td><td class="markdownTableBodyNone">Simulation dimensions, frame rate, particle/physics constants, colors, <code>CLUSTER_PALETTE</code>.    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/sim_logger.py"><code>src/utils/sim_logger.py</code></a>   </td><td class="markdownTableBodyNone"><code>SimLogger</code> — per-round CSV/JSONL logging and matplotlib plot generation.    </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/rounds_plotter.py"><code>src/utils/rounds_plotter.py</code></a>   </td><td class="markdownTableBodyNone">Standalone post-hoc re-plotter for a run's <code>rounds.csv</code> (<code>python -m src.utils.rounds_plotter</code>).    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/tools/run_all.py"><code>tools/run_all.py</code></a>   </td><td class="markdownTableBodyNone">Launches the four ablation configs as parallel processes.    </td></tr>
+<tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json"><code>config.json</code></a>   </td><td class="markdownTableBodyNone">Master config (forces, clusters, obstacles, toggles, rules).    </td></tr>
-<tr class="markdownTableRowEven">
+<tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><a href="https://github.com/andrijakrklec/emergent-garden/tree/HEAD/configs"><code>configs/</code></a>   </td><td class="markdownTableBodyNone">Per-experiment overrides; only list keys that differ from master.   </td></tr>
 </table>
 <h2><a class="anchor" id="autotoc_md21"></a>
 Key entry points</h2>
 <ul>
 <li><b>Physics step</b>: <code>SimulationThread._step()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py"><code>game.py</code></a>) — drifts targets, runs local training, fires federation rounds, applies physics, samples trails.</li>
-<li><b>Federation round</b>: <code>run_cfl_round()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py"><code>particle.py</code></a>).</li>
+<li><b>Federation round</b>: <code>run_cfl_round()</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py"><code>cfl.py</code></a>).</li>
 <li><b>Snapshot for GUI</b>: <code>SimulationThread._build_snapshot()</code> → immutable <code>SimSnapshot</code> dataclass.</li>
 </ul>
 <h2><a class="anchor" id="autotoc_md22"></a>
@@ -274,7 +285,7 @@ Running the simulation</h1>
 </div><!-- fragment --><p><b>Specific configuration</b>:</p>
 <div class="fragment"><div class="line">python main.py --config configs/cfl_on__emergent_on.json</div>
 </div><!-- fragment --><p><b>All four ablation configs at once</b> (one pygame window + log directory each):</p>
-<div class="fragment"><div class="line">python run_all.py</div>
+<div class="fragment"><div class="line">python tools/run_all.py</div>
 </div><!-- fragment --><p>Each run writes a timestamped directory under <code>logs/run_&lt;timestamp&gt;[_tags]/</code> and, on exit (or every 20 rounds), renders its plots there.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md28"></a>
@@ -283,7 +294,7 @@ Configuration reference</h1>
 <ol type="1">
 <li><b>master</b> <a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json"><code>config.json</code></a> — globals plus the <code>emergent_preset</code> selector;</li>
 <li>the <b>emergent preset</b> it names (<code>configs/emergent/&lt;name&gt;.json</code>) — the attract/repel personality;</li>
-<li>the per-run **<code>--config</code>** file (used by <code><a class="el" href="run__all_8py.html" title="Launch the 2x2 ablation: all four configs as separate processes.">run_all.py</a></code>) — e.g. the ablation toggles.</li>
+<li>the per-run **<code>--config</code>** file (used by <code><a class="el" href="run__all_8py.html" title="Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly.">run_all.py</a></code>) — e.g. the ablation toggles.</li>
 </ol>
 <p><code>pair_rules</code> are deep-merged per entry, so any layer can change individual pairs without repeating the whole table. Keys beginning with <code>_</code> are treated as comments.</p>
 <table class="markdownTable">
@@ -340,12 +351,28 @@ Emergent presets</h2>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><code>gas</code>   </td><td class="markdownTableBodyNone">4   </td><td class="markdownTableBodyNone">Clusters self-repel and repel each other — particles disperse like a gas.    </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><code>chains</code>   </td><td class="markdownTableBodyNone">5   </td><td class="markdownTableBodyNone">Only adjacent clusters attract (0-1-2-3-4) — linked strands.   </td></tr>
+<td class="markdownTableBodyNone"><code>chains</code>   </td><td class="markdownTableBodyNone">5   </td><td class="markdownTableBodyNone">Only adjacent clusters attract (0-1-2-3-4) — linked strands.    </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><code>scramble</code>   </td><td class="markdownTableBodyNone">5   </td><td class="markdownTableBodyNone">Universal strong repulsion — every agent repels every other, so the swarm scatters and can't reach its anchors (worst-case ablation stress test).   </td></tr>
 </table>
+<p><img src="cfl_off__emergent_on__preset_default_thumb.png" alt="" class="inline" title="default preset"/>     <br  />
+ <b>default</b> — balanced cohesion / spread</p>
+<p><img src="cfl_on__emergent_on__preset_cells_thumb.png" alt="" class="inline" title="cells preset"/>     <br  />
+ <b>cells</b> — tight cohesive blobs that strongly repel each other</p>
+<p><img src="cfl_on__emergent_on__preset_swarm_thumb.png" alt="" class="inline" title="swarm preset"/>     <br  />
+ <b>swarm</b> — one drifting super-swarm</p>
+<p><img src="cfl_on__emergent_on__preset_orbits_thumb.png" alt="" class="inline" title="orbits preset"/>     <br  />
+ <b>orbits</b> — central core attracts satellites that repel each other</p>
+<p><img src="cfl_off__emergent_on__preset_gas_thumb.png" alt="" class="inline" title="gas preset"/>     <br  />
+ <b>gas</b> — every cluster repels; particles disperse</p>
+<p><img src="cfl_off__emergent_on__preset_chains_thumb.png" alt="" class="inline" title="chains preset"/>     <br  />
+ <b>chains</b> — only adjacent clusters attract (0-1-2-3-4)</p>
+<p><img src="cfl_on__emergent_on__preset_scramble_thumb.png" alt="" class="inline" title="scramble preset"/>     <br  />
+ <b>scramble</b> — universal repulsion; the swarm can't reach its anchors</p>
 <p>Add your own by dropping a <code>configs/emergent/&lt;name&gt;.json</code> with the same fields and setting <code>emergent_preset</code> to <code>&lt;name&gt;</code>.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md31"></a>
-Evaluation &amp; experiment design / Vrednovanje</h1>
+Evaluation &amp; experiment design / Usporedba konfiguracija</h1>
 <h2><a class="anchor" id="autotoc_md32"></a>
 The 2×2 ablation</h2>
 <p>The two coupling directions are toggled independently to isolate their effects:</p>
@@ -353,10 +380,18 @@ The 2×2 ablation</h2>
 <li><b>CFL on/off</b> isolates the <em>cognitive</em> contribution (does federation reduce loss by averaging out the non-IID bias?).</li>
 <li><b>Emergent on/off</b> isolates the <em>physical</em> contribution (do the attraction rules change clustering and convergence?).</li>
 </ul>
-<p><code><a class="el" href="run__all_8py.html" title="Launch the 2x2 ablation: all four configs as separate processes.">run_all.py</a></code> launches all four simultaneously so the runs are directly comparable. The metrics tracked <b>every round regardless of mode</b> (so toggling is visible) are average loss and confidence (tracked each round in <code>SimulationThread._step</code>).</p>
+<p><code><a class="el" href="run__all_8py.html" title="Run the 2x2 ablation (CFL on/off x emergent on/off) repeatedly.">run_all.py</a></code> launches all four simultaneously so the runs are directly comparable. The metrics tracked <b>every round regardless of mode</b> (so toggling is visible) are average loss and confidence (tracked each round in <code>SimulationThread._step</code>).</p>
+<p><img src="cfl_off__emergent_off_thumb.png" alt="" class="inline" title="CFL off, emergent off"/>     <br  />
+ <b>CFL off · emergent off</b> — no coupling; agents just drift to personal targets</p>
+<p><img src="cfl_on__emergent_off_thumb.png" alt="" class="inline" title="CFL on, emergent off"/>     <br  />
+ <b>CFL on · emergent off</b> — federation only; clusters converge on their anchors</p>
+<p><img src="cfl_off__emergent_on__preset_default_thumb.png" alt="" class="inline" title="CFL off, emergent on"/>     <br  />
+ <b>CFL off · emergent on</b> — physics only; spatial forces, no federation</p>
+<p><img src="cfl_on__emergent_on__preset_cells_thumb.png" alt="" class="inline" title="CFL on, emergent on"/>     <br  />
+ <b>CFL on · emergent on</b> — full coupling; federated clusters + emergent physics</p>
 <h2><a class="anchor" id="autotoc_md33"></a>
 Logged artifacts</h2>
-<p><code>SimLogger</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/sim_logger.py"><code>src/sim_logger.py</code></a>) writes per run:</p>
+<p><code>SimLogger</code> (<a href="https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/sim_logger.py"><code>src/utils/sim_logger.py</code></a>) writes per run:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">File   </th><th class="markdownTableHeadNone">Contents    </th></tr>
@@ -369,7 +404,7 @@ Logged artifacts</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><code>events.jsonl</code>   </td><td class="markdownTableBodyNone">Split / merge / explosion events, one JSON object per line.    </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><code>sim_log.txt</code>   </td><td class="markdownTableBodyNone">Human-readable mirror of the terminal output.   </td></tr>
+<td class="markdownTableBodyNone"><code>sim_log.txt</code>   </td><td class="markdownTableBodyNone">Mirror of the terminal output.   </td></tr>
 </table>
 <h2><a class="anchor" id="autotoc_md34"></a>
 Generated plots</h2>
@@ -377,7 +412,7 @@ Generated plots</h2>
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Plot   </th><th class="markdownTableHeadNone">Shows    </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><code>global_metrics.png</code>   </td><td class="markdownTableBodyNone">2×3 grid: inertia, cluster count, migrations (CFL row) + confidence, loss, peer-alignment. CFL-only panels are greyed out when disabled.    </td></tr>
+<td class="markdownTableBodyNone"><code>global_metrics.png</code>   </td><td class="markdownTableBodyNone">2×3 grid: cluster purity, cluster count, migrations (CFL row) + local loss, direction precision, spatial precision. CFL-only panels are greyed out when disabled.    </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><code>cluster_sizes.png</code>   </td><td class="markdownTableBodyNone">Per-cluster population over rounds, with split/merge/explosion markers.    </td></tr>
 <tr class="markdownTableRowOdd">
@@ -387,7 +422,6 @@ Generated plots</h2>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><code>cohesion_divergence.png</code>   </td><td class="markdownTableBodyNone">Per-cluster model divergence and spatial spread.   </td></tr>
 </table>
-<p>Plots use a consistent dark theme and event markers so runs from different configs can be visually compared side by side — the "prikladna vizualna interpretacija" called for in the thesis.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md36"></a>
 Visualization &amp; controls</h1>
@@ -399,30 +433,39 @@ Visualization &amp; controls</h1>
 <li><b>Attraction rules matrix</b> — click a cell to edit a per-pair force (type a value, Enter to commit); <b>double-click</b> to reset to default. Visible only when attraction is enabled. Manual edits are clamped to [−50, 50].</li>
 </ul>
 <p><b>Keyboard:</b></p><ul>
-<li>**<code>T</code>** — toggle target lines (draw each agent's line to its personal inner target).</li>
+<li>**<code>T</code>** — toggle target lines (draw each agent's line to its inner target).</li>
 </ul>
 <p><b>Dashboard readouts:</b> current round, per-cluster agent counts (color-keyed), live loss/confidence bars, and a rolling sparkline of loss and confidence.</p>
 <hr  />
 <h1><a class="anchor" id="autotoc_md38"></a>
 Project structure</h1>
 <div class="fragment"><div class="line">emergent-garden/</div>
-<div class="line">├── main.py                 # entry point (--config)</div>
-<div class="line">├── run_all.py              # launch the 2×2 ablation in parallel</div>
-<div class="line">├── config.json             # master configuration</div>
+<div class="line">├── main.py                      # entry point (--config)</div>
+<div class="line">├── config.json                  # master configuration</div>
 <div class="line">├── requirements.txt</div>
-<div class="line">├── Doxyfile                # Doxygen API-doc configuration</div>
-<div class="line">├── configs/                # per-experiment overrides</div>
+<div class="line">├── Doxyfile                     # Doxygen API-doc configuration</div>
+<div class="line">├── configs/                     # per-experiment overrides</div>
 <div class="line">│   ├── cfl_on__emergent_on.json</div>
 <div class="line">│   ├── cfl_on__emergent_off.json</div>
 <div class="line">│   ├── cfl_off__emergent_on.json</div>
-<div class="line">│   └── cfl_off__emergent_off.json</div>
+<div class="line">│   ├── cfl_off__emergent_off.json</div>
+<div class="line">│   └── emergent/                # named behaviour presets (default, cells, …)</div>
 <div class="line">├── src/</div>
-<div class="line">│   ├── game.py             # SimulationThread + Game (GUI), config merge</div>
-<div class="line">│   ├── particle.py         # Particle model, local_train, IFCA, physics</div>
-<div class="line">│   ├── sim_logger.py       # CSV/JSONL logging + matplotlib plots</div>
-<div class="line">│   └── constants.py        # dimensions, rates, physics constants, colors</div>
-<div class="line">├── docs/images/            # screenshots</div>
-<div class="line">└── logs/                   # per-run output (CSV + plots), created at runtime</div>
+<div class="line">│   ├── game.py                  # SimulationThread engine + SimSnapshot + apply_physics_rules</div>
+<div class="line">│   ├── gui.py                   # Game — pygame render/input front-end</div>
+<div class="line">│   ├── particle.py              # Particle model, local_train, update_peer_alignment</div>
+<div class="line">│   ├── cfl.py                   # IFCA round, clustering, instantiate_group</div>
+<div class="line">│   ├── cfl_params.py            # CFL/IFCA tunables (getters)</div>
+<div class="line">│   ├── physics.py               # pure force library</div>
+<div class="line">│   ├── constants.py             # dimensions, rates, physics constants, colors, palette</div>
+<div class="line">│   └── utils/</div>
+<div class="line">│       ├── sim_logger.py        # CSV/JSONL logging + matplotlib plots</div>
+<div class="line">│       └── rounds_plotter.py    # standalone rounds.csv re-plotter</div>
+<div class="line">├── tools/</div>
+<div class="line">│   ├── run_all.py               # launch the 2×2 ablation in parallel</div>
+<div class="line">│   └── rounds_plotter_form.html # command builder for rounds_plotter</div>
+<div class="line">├── docs/images/                 # screenshots</div>
+<div class="line">└── logs/                        # per-run output (CSV + plots); gitignored</div>
 </div><!-- fragment --><hr  />
 <h1><a class="anchor" id="autotoc_md40"></a>
 Credits &amp; license</h1>

@@ -97,7 +97,7 @@ Inheritance diagram for game.SimulationThread:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a85e55f26df3798f0ea81e2cd89aa1809"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#a85e55f26df3798f0ea81e2cd89aa1809">__init__</a> (self, queue.Queue <a class="el" href="classgame_1_1SimulationThread.html#a52bb90866779a43c49f676832ff20a88">cmd_queue</a>, str <a class="el" href="classgame_1_1SimulationThread.html#aeaeb9acc843220bf025f10d9b669559e">config_path</a>=<a class="el" href="namespacegame.html#ae5fa2f50ba0fb2c5e3c033f6933b0a43">DEFAULT_CONFIG_PATH</a>, str <a class="el" href="classgame_1_1SimulationThread.html#ad9fd9d02f86d2be43830e9b0e37083ef">log_dir</a>=&quot;logs&quot;, Optional[str] <a class="el" href="classgame_1_1SimulationThread.html#a451e3d8d1967b29085a50a1300f40d0b">run_name</a>=None, Optional[str] <a class="el" href="classgame_1_1SimulationThread.html#a47035c428f05787d900769c60391740e">preset</a>=None)</td></tr>
-<tr class="memdesc:a85e55f26df3798f0ea81e2cd89aa1809"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct the simulation thread and initialise all state from config.  <br /></td></tr>
+<tr class="memdesc:a85e55f26df3798f0ea81e2cd89aa1809"><td class="mdescLeft">&#160;</td><td class="mdescRight">Construct the simulation thread and initialize all state from config.  <br /></td></tr>
 <tr class="separator:a85e55f26df3798f0ea81e2cd89aa1809"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad4c89ecf5768761b5f58aa5703693a96"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#ad4c89ecf5768761b5f58aa5703693a96">set_rule</a> (self, i, j, val)</td></tr>
 <tr class="memdesc:ad4c89ecf5768761b5f58aa5703693a96"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the internal-scale force for cluster pair (i, j).  <br /></td></tr>
@@ -174,7 +174,7 @@ Protected Member Functions</h2></td></tr>
 <tr class="memdesc:a20c451f1c04c8dff583281d55d6eaabf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dispatch one GUI command (detonate, set/reset rule, toggle CFL/attraction).  <br /></td></tr>
 <tr class="separator:a20c451f1c04c8dff583281d55d6eaabf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7df33065ac202eadc3f685a67a87177e"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#a7df33065ac202eadc3f685a67a87177e">_trigger_explosion</a> (self)</td></tr>
-<tr class="memdesc:a7df33065ac202eadc3f685a67a87177e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Scatter every agent and randomise its model — a re-convergence stress test.  <br /></td></tr>
+<tr class="memdesc:a7df33065ac202eadc3f685a67a87177e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Scatter every agent and randomize its model — a re-convergence stress test.  <br /></td></tr>
 <tr class="separator:a7df33065ac202eadc3f685a67a87177e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad142e1356f30e440dd6fc3d7c183570d"><td class="memItemLeft" align="right" valign="top">def&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#ad142e1356f30e440dd6fc3d7c183570d">_step</a> (self, float dt)</td></tr>
 <tr class="memdesc:ad142e1356f30e440dd6fc3d7c183570d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Advance the simulation by one physics tick.  <br /></td></tr>
@@ -195,8 +195,6 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a5b46749ec5805681941f2ebf65a83691"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb70071f8c16bb1747e136d41e589073"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#adb70071f8c16bb1747e136d41e589073">_snapshot_lock</a></td></tr>
 <tr class="separator:adb70071f8c16bb1747e136d41e589073"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a300614243d12791b2a1faa9d125d8504"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#a300614243d12791b2a1faa9d125d8504">_true_anchors</a></td></tr>
-<tr class="separator:a300614243d12791b2a1faa9d125d8504"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab5d78c0b30b925f82f5090e9cdbaf318"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#ab5d78c0b30b925f82f5090e9cdbaf318">_true_anchor_angles</a></td></tr>
 <tr class="separator:ab5d78c0b30b925f82f5090e9cdbaf318"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7278467c05453b4a26c3ba0ce5d887e0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classgame_1_1SimulationThread.html#a7278467c05453b4a26c3ba0ce5d887e0">_trail_counter</a></td></tr>
@@ -211,7 +209,7 @@ federation round every @c cluster_update_interval steps, drains GUI commands
 from a queue, and publishes an immutable SimSnapshot each step. All state
 mutation happens here so the GUI thread stays read-only.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00185">185</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00306">306</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a85e55f26df3798f0ea81e2cd89aa1809" name="a85e55f26df3798f0ea81e2cd89aa1809"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a85e55f26df3798f0ea81e2cd89aa1809">&#9670;&#160;</a></span>__init__()</h2>
@@ -263,14 +261,14 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p>Construct the simulation thread and initialise all state from config. </p>
+<p>Construct the simulation thread and initialize all state from config. </p>
 <pre class="fragment">    @param cmd_queue Thread-safe queue the GUI uses to send commands (toggles, edits, detonate).
     @param config_path Path to the configuration file to load.
     @param log_dir Base directory for the run's log folder.
     @param run_name Explicit run-folder name (overrides the timestamped default); for batch runs.
     @param preset Overrides the emergent_preset from config.json (for batch runs over presets).
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00194">194</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00315">315</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -307,7 +305,7 @@ mutation happens here so the GUI thread stays read-only.
     @param spec The raw @c obstacles value from the config.
     @return list of (x, y, radius) obstacle tuples.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00220">220</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00341">341</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -338,9 +336,9 @@ mutation happens here so the GUI thread stays read-only.
 <p>Build the initial world from config: clusters, agents, obstacles, forces, logger. </p>
 <pre class="fragment">    Spawns one populated group per cluster when @c num_clusters is configured
     (skipping the initial CFL round), or five randomly-assigned groups settled by
-    one CFL round otherwise. Also seeds targets, trails, colours and the SimLogger.
+    one CFL round otherwise. Also seeds targets, trails, colors and the SimLogger.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00269">269</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00390">390</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -370,7 +368,7 @@ mutation happens here so the GUI thread stays read-only.
 
 <p>Add missing default rules for current cluster pairs and drop stale ones. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00439">439</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00528">528</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -419,7 +417,7 @@ mutation happens here so the GUI thread stays read-only.
 
     @param i First cluster id. @param j Second cluster id. @param val Internal-scale force.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00451">451</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00540">540</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -457,7 +455,7 @@ mutation happens here so the GUI thread stays read-only.
 
 <p>Reset the (i, j) force to the default (g_attract if i==j else g_repel). </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00462">462</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00551">551</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -498,7 +496,7 @@ mutation happens here so the GUI thread stays read-only.
 <p>Dispatch one GUI command (detonate, set/reset rule, toggle CFL/attraction). </p>
 <pre class="fragment">    @param cmd dict with a @c 'type' key plus type-specific fields.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00470">470</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00559">559</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -526,9 +524,9 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p>Scatter every agent and randomise its model — a re-convergence stress test. </p>
+<p>Scatter every agent and randomize its model — a re-convergence stress test. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00489">489</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00578">578</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -574,7 +572,7 @@ mutation happens here so the GUI thread stays read-only.
 
     @param dt Integration timestep in seconds.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00508">508</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00597">597</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -605,7 +603,7 @@ mutation happens here so the GUI thread stays read-only.
 <p>Assemble an immutable SimSnapshot of current state for the GUI. </p>
 <pre class="fragment">    @return SimSnapshot a deep-enough copy that the renderer can read lock-free.
 </pre> 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00744">744</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00801">801</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -627,7 +625,7 @@ mutation happens here so the GUI thread stays read-only.
 
 <p>Return the latest published snapshot (thread-safe), or None before the first step. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00786">786</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00843">843</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -649,7 +647,7 @@ mutation happens here so the GUI thread stays read-only.
 
 <p>Thread entry point: drain commands, step, publish, and pace to PHYSICS_HZ until stopped. </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00795">795</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00852">852</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -671,7 +669,7 @@ mutation happens here so the GUI thread stays read-only.
 
 <p>Signal the thread to stop after the current step (triggers logger teardown). </p>
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00824">824</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00881">881</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -688,7 +686,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00205">205</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00326">326</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -704,7 +702,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00206">206</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00327">327</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -720,7 +718,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00207">207</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00328">328</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -736,7 +734,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00208">208</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00329">329</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -752,7 +750,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00209">209</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00330">330</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -776,7 +774,7 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00210">210</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00331">331</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -800,7 +798,7 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00211">211</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00332">332</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -816,31 +814,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00279">279</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
-
-</div>
-</div>
-<a id="a300614243d12791b2a1faa9d125d8504" name="a300614243d12791b2a1faa9d125d8504"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a300614243d12791b2a1faa9d125d8504">&#9670;&#160;</a></span>_true_anchors</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">game.SimulationThread._true_anchors</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00300">300</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00403">403</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -864,7 +838,7 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00305">305</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00423">423</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -880,7 +854,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00309">309</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00428">428</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -896,7 +870,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00317">317</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00431">431</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -912,7 +886,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00318">318</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00432">432</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -936,7 +910,7 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00322">322</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00436">436</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -952,7 +926,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00324">324</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00438">438</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -968,7 +942,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00327">327</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00457">457</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -984,7 +958,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00377">377</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00475">475</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1000,7 +974,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00383">383</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00482">482</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1016,7 +990,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00390">390</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00490">490</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1032,7 +1006,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00391">391</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00491">491</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1048,7 +1022,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00392">392</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00492">492</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1064,7 +1038,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00393">393</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00493">493</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1080,7 +1054,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00394">394</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00494">494</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1096,7 +1070,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00396">396</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00496">496</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1112,7 +1086,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00400">400</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00500">500</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1128,7 +1102,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00402">402</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00502">502</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1144,7 +1118,7 @@ mutation happens here so the GUI thread stays read-only.
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00427">427</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00516">516</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
@@ -1168,7 +1142,7 @@ mutation happens here so the GUI thread stays read-only.
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00815">815</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
+<p class="definition">Definition at line <a class="el" href="game_8py_source.html#l00872">872</a> of file <a class="el" href="game_8py_source.html">game.py</a>.</p>
 
 </div>
 </div>
