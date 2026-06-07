@@ -1,0 +1,64 @@
+# Doxyfile for Emergent Garden — Clustered Federated Learning simulation.
+# Generate API docs with:   doxygen Doxyfile
+# Output (HTML):            docs/doxygen/html/index.html
+#
+# Only non-default settings are listed; any Doxygen version fills the rest with
+# its built-in defaults and silently ignores tags it doesn't recognise.
+
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "Emergent Garden — Clustered Federated Learning"
+PROJECT_BRIEF          = "Bidirectional coupling of clustered federated learning (IFCA) and emergent multi-agent physics"
+OUTPUT_DIRECTORY       = docs/doxygen
+OUTPUT_LANGUAGE        = English
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+INPUT                  = README.md main.py tools/run_all.py src
+FILE_PATTERNS          = *.py
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+# Generate header anchors GitHub-style so the README's in-page table-of-contents
+# links resolve in the generated HTML too (requires Doxygen >= 1.10).
+MARKDOWN_ID_STYLE      = GITHUB
+EXCLUDE_PATTERNS       = */.venv/* */.claude/* */logs/* */docs/doxygen/*
+# Where to find images referenced from markdown/docstrings. Doxygen copies the
+# README hero image into the HTML output and rewrites its <img> src to the
+# basename; the README keeps the full docs/images/ path that GitHub needs.
+IMAGE_PATH             = . docs/images
+
+#---------------------------------------------------------------------------
+# Build — what to extract
+#---------------------------------------------------------------------------
+# Python is closest to the Java output model (modules, classes, methods).
+OPTIMIZE_OUTPUT_JAVA   = YES
+# Treat docstrings as normal comments so @brief/@param/@return render as
+# structured fields rather than verbatim preformatted text.
+PYTHON_DOCSTRING       = NO
+JAVADOC_AUTOBRIEF      = YES
+# Document everything, including the _private helpers and module-level constants,
+# even where a docstring is absent.
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_METHODS  = YES
+SORT_MEMBER_DOCS       = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+
+#---------------------------------------------------------------------------
+# Output formats
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+ALPHABETICAL_INDEX     = YES
+
+#---------------------------------------------------------------------------
+# Diagrams (text-only; no Graphviz/dot dependency required)
+#---------------------------------------------------------------------------
+HAVE_DOT               = NO

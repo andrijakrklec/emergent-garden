@@ -1,0 +1,7 @@
+{
+  "_comment": "GAS — clusters self-repel (positive diagonal) and repel each other, so particles spread out and fill the whole arena like an ideal gas. No clumping.",
+  "num_clusters": 4,
+  "g_attract": 0.4,
+  "g_repel": 0.6,
+  "pair_rules": {}
+}

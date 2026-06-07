@@ -1,7 +1,21 @@
+# Editors / IDEs
 .vscode
+.idea/
 
+# Python
 .venv
+__pycache__
 
+# OS
 .DS_Store
 
-__pycache__
+# Runtime output (created by the simulation / batch runs)
+logs/
+plots/
+comparison_plots/
+
+# Generated API docs (regenerate from the Doxyfile)
+docs/doxygen/
+
+# Stray empty artifact
+/python

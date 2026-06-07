@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rounds_plotter command builder</title>
+<style>
+  :root{
+    --bg:#1a1a2e; --panel:#16213e; --fg:#e8e8f0; --muted:#9aa0c0;
+    --accent:#5599dd; --accent2:#33cccc; --line:#33335a; --field:#0f1530;
+    --ok:#55bb77; --warn:#ffaa00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;padding:24px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 16px;padding:14px 16px;
+           background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+  legend{padding:0 8px;color:var(--accent2);font-weight:600;font-size:13px;letter-spacing:.3px;text-transform:uppercase}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 3px}
+  input[type=text],input[type=number],select{
+    width:100%;background:var(--field);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:7px 9px;font:13px/1.3 inherit}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .chk{display:flex;align-items:center;gap:6px;color:var(--fg);font-size:13px}
+  .chk input{width:auto}
+  .modes{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:5px 6px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--muted);font-weight:600}
+  td input{padding:5px 7px}
+  td.col{font-family:ui-monospace,Consolas,monospace;color:var(--accent2);white-space:nowrap}
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1px solid #0006}
+  details>summary{cursor:pointer;color:var(--accent2);font-weight:600;font-size:13px;
+                  text-transform:uppercase;letter-spacing:.3px;list-style:none;padding:6px 0}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:"▸ ";color:var(--muted)}
+  details[open]>summary::before{content:"▾ "}
+  .out{position:sticky;bottom:0;margin-top:8px}
+  .cmdbox{background:#0b1020;border:1px solid var(--accent);border-radius:10px;padding:14px 16px}
+  pre{margin:0;white-space:pre-wrap;word-break:break-all;font:13px/1.55 ui-monospace,Consolas,monospace;color:#cfe6ff}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+  button{background:var(--accent);color:#06122a;border:0;border-radius:7px;padding:8px 16px;
+         font-weight:700;cursor:pointer;font-size:13px}
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:600}
+  .hint{color:var(--muted);font-size:12px;margin-top:8px}
+  .pill{font-size:11px;color:var(--warn)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>rounds_plotter &mdash; command builder</h1>
+  <p class="sub">Fill in the options, copy the generated command. Mirrors every flag of
+     <code>src/utils/rounds_plotter.py</code>. Blank fields fall back to the script's defaults
+     (shown as placeholders), so the command stays minimal.</p>
+
+  <form id="f">
+    <!-- ── input / output ─────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Input &amp; output</legend>
+
+      <div class="modes" style="margin-bottom:12px">
+        <label class="chk"><input type="radio" name="inmode" value="single" checked> Single CSV &mdash; one line per metric</label>
+        <label class="chk"><input type="radio" name="inmode" value="compare"> Compare runs &mdash; one line per folder</label>
+        <label class="chk"><input type="radio" name="inmode" value="groups"> Average &amp; compare groups <span class="pill">--group</span></label>
+        <label class="chk"><input type="radio" name="inmode" value="average"> Average runs &mdash; one mean line <span class="pill">--avg</span></label>
+      </div>
+
+      <!-- single-CSV input -->
+      <div id="singleWrap">
+        <label>Folder containing rounds.csv (rounds.csv is appended for you)</label>
+        <input type="text" id="csv" value="" placeholder="logs\run_20260525_184553_cfl">
+      </div>
+
+      <!-- comparison runs table -->
+      <div id="compareWrap" style="display:none">
+        <table>
+          <thead><tr>
+            <th>Run folder (contains rounds.csv)</th><th>Label <span class="pill">--labels</span></th>
+            <th>Colour <span class="pill">--colors</span></th><th></th>
+          </tr></thead>
+          <tbody id="runs"></tbody>
+        </table>
+        <button type="button" class="ghost" id="addRun" style="margin-top:8px">+ Add run</button>
+        <p class="hint">Each row is one overlaid line, in order. Blank label &rarr; the run's
+           folder name. Labels must not contain commas. The per-metric Colour column below is
+           ignored in compare mode &mdash; set per-run colours here instead.</p>
+      </div>
+
+      <!-- averaged groups -->
+      <div id="groupsWrap" style="display:none">
+        <div class="row" style="margin-bottom:10px">
+          <div>
+            <label>Scan a folder for runs (lists every subfolder with a rounds.csv)</label>
+            <input type="file" id="scan" webkitdirectory directory multiple
+                   style="color:var(--muted);font-size:12px">
+          </div>
+          <div>
+            <label>Path prefix from repo root <span class="pill">optional</span></label>
+            <input type="text" id="prefixPath" placeholder="logs" style="width:160px">
+          </div>
+          <span id="scanStatus" class="hint" style="align-self:flex-end"></span>
+        </div>
+
+        <label>Groups (each is one averaged mean line)</label>
+        <table>
+          <thead><tr><th>Label <span class="pill">--group</span></th>
+            <th>Colour <span class="pill">--colors</span></th><th></th></tr></thead>
+          <tbody id="grpDefs"></tbody>
+        </table>
+        <button type="button" class="ghost" id="addGroup" style="margin:8px 0">+ Add group</button>
+
+        <label style="margin-top:8px">Assign folders to a group (check by choosing a group)</label>
+        <div id="folderList" style="max-height:280px;overflow:auto;border:1px solid var(--line);
+             border-radius:8px;padding:8px"></div>
+        <p class="hint">Pick the folder that, run from the repo root, is correct &mdash; if you scan
+           your top-level <code>logs</code> folder, leave the prefix empty. Folders set to
+           <i>(none)</i> are excluded. A group with several folders is averaged per round into one
+           mean line. Labels must not contain commas.</p>
+      </div>
+
+      <!-- average runs into one line -->
+      <div id="averageWrap" style="display:none">
+        <div class="row" style="margin-bottom:10px">
+          <div>
+            <label>Scan a folder for runs (lists every subfolder with a rounds.csv)</label>
+            <input type="file" id="scanAvg" webkitdirectory directory multiple
+                   style="color:var(--muted);font-size:12px">
+          </div>
+          <div>
+            <label>Path prefix from repo root <span class="pill">optional</span></label>
+            <input type="text" id="prefixAvgPath" placeholder="logs" style="width:140px">
+          </div>
+          <div>
+            <label>Line label <span class="pill">--labels</span></label>
+            <input type="text" id="avgLabel" placeholder="(auto from name)" style="width:150px">
+          </div>
+          <div>
+            <label>Colour <span class="pill">--colors</span></label>
+            <input type="text" id="avgColor" placeholder="#hex (auto)" style="width:100px">
+          </div>
+          <span id="scanStatusAvg" class="hint" style="align-self:flex-end"></span>
+        </div>
+
+        <label>Check the runs to average into one mean line</label>
+        <div style="margin:4px 0 6px">
+          <button type="button" class="ghost" id="avgAll" style="padding:4px 10px">Check all</button>
+          <button type="button" class="ghost" id="avgNone" style="padding:4px 10px">Check none</button>
+        </div>
+        <div id="avgFolderList" style="max-height:280px;overflow:auto;border:1px solid var(--line);
+             border-radius:8px;padding:8px"></div>
+        <p class="hint">All checked runs are averaged per round into a single line (no comparison).
+           Output files are prefixed <code>avg_</code>. Same prefix rule as above &mdash; scan your
+           top-level <code>logs</code> folder and leave the prefix empty.</p>
+      </div>
+
+      <div class="grid g3" style="margin-top:14px">
+        <div>
+          <label>Output directory <span class="pill">--out</span></label>
+          <input type="text" id="out" placeholder="&lt;csv_dir&gt;/plots · ./comparison_plots">
+        </div>
+        <div>
+          <label>Output format <span class="pill">--format</span></label>
+          <select id="format">
+            <option value="png">png (default)</option>
+            <option value="pdf">pdf</option>
+            <option value="svg">svg</option>
+            <option value="jpg">jpg</option>
+          </select>
+        </div>
+        <div>
+          <label>Command prefix (run from the repo root)</label>
+          <input type="text" id="prefix" value="python src/utils/rounds_plotter.py">
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- ── metric selection ───────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Metrics to plot</legend>
+      <div class="modes">
+        <label class="chk"><input type="radio" name="mode" value="default" checked> Default 6 (SimLogger global metrics)</label>
+        <label class="chk"><input type="radio" name="mode" value="all"> All columns <span class="pill">--all</span></label>
+        <label class="chk"><input type="radio" name="mode" value="custom"> Custom selection <span class="pill">--metrics</span></label>
+      </div>
+      <div id="extraWrap" style="display:none">
+        <label>Extra / custom columns not listed below (comma-separated)</label>
+        <input type="text" id="extra" placeholder="e.g. some_new_column,another">
+      </div>
+    </fieldset>
+
+    <!-- ── global cosmetics ───────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Figure cosmetics (global)</legend>
+      <div class="grid g4">
+        <div>
+          <label>Theme <span class="pill">--theme</span></label>
+          <select id="theme">
+            <option value="dark">dark (default)</option>
+            <option value="light">light</option>
+          </select>
+        </div>
+        <div>
+          <label>DPI <span class="pill">--dpi</span></label>
+          <input type="number" id="dpi" placeholder="130" min="10" step="10">
+        </div>
+        <div>
+          <label>Figure width (in) <span class="pill">--figsize</span></label>
+          <input type="number" id="figw" placeholder="10" step="0.5">
+        </div>
+        <div>
+          <label>Figure height (in)</label>
+          <input type="number" id="figh" placeholder="6" step="0.5">
+        </div>
+        <div>
+          <label>Line width <span class="pill">--linewidth</span></label>
+          <input type="number" id="lw" placeholder="1.8" step="0.1">
+        </div>
+        <div>
+          <label>Marker <span class="pill">--marker</span></label>
+          <select id="marker">
+            <option value="">none (default)</option>
+            <option value="o">o circle</option>
+            <option value=".">. point</option>
+            <option value="s">s square</option>
+            <option value="^">^ triangle</option>
+            <option value="D">D diamond</option>
+            <option value="x">x</option>
+            <option value="+">+</option>
+            <option value="*">* star</option>
+          </select>
+        </div>
+        <div>
+          <label>Marker size <span class="pill">--markersize</span></label>
+          <input type="number" id="ms" placeholder="4.0" step="0.5">
+        </div>
+        <div>
+          <label>Target shell (for quoting)</label>
+          <select id="shell">
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">cmd</option>
+            <option value="bash">bash / POSIX</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid g3" style="margin-top:12px">
+        <div>
+          <label>X-axis label <span class="pill">--xlabel</span></label>
+          <input type="text" id="xlabel" placeholder="Round">
+        </div>
+        <div>
+          <label>X tick step <span class="pill">--xstep</span></label>
+          <input type="number" id="xstep" placeholder="auto" step="1">
+        </div>
+        <div>
+          <label>Suptitle (above every title) <span class="pill">--suptitle</span></label>
+          <input type="text" id="suptitle" placeholder="e.g. CFL: ON | Emergent: OFF">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <label class="chk"><input type="checkbox" id="nogrid"> No grid <span class="pill">--no-grid</span></label>
+        <label class="chk"><input type="checkbox" id="noevents"> No event markers <span class="pill">--no-events</span></label>
+        <label class="chk"><input type="checkbox" id="nolegend"> No legend <span class="pill">--no-legend</span></label>
+        <label class="chk"><input type="checkbox" id="show"> Interactive window <span class="pill">--show</span></label>
+        <label class="chk"><input type="checkbox" id="exportcsv"> Export plot data (CSV) <span class="pill">--export-csv</span></label>
+      </div>
+    </fieldset>
+
+    <!-- ── per-metric overrides ───────────────────────────────────────── -->
+    <fieldset>
+      <legend>Per-metric overrides</legend>
+      <details>
+        <summary>Titles, axis labels, colours &amp; tick granularity (optional)</summary>
+        <p class="hint">Leave a cell blank to keep the script default. Overrides only emit for
+           metrics that are actually plotted (per the selection above). Use the
+           <b>Plot</b> checkbox in Custom mode to choose columns. <code>ylim</code> is
+           <code>lo,hi</code>; <code>y step</code> sets y-tick spacing.<br>
+           Wrap part of any title, y-label, x-label or suptitle in <code>**double
+           asterisks**</code> to render just that part <b>bold</b> (ASCII text).</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Plot</th><th>Column</th><th>Title (--title)</th><th>Y label (--ylabel)</th>
+              <th>Colour (--color)</th><th>Y step (--ystep)</th><th>Y lim (--ylim)</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </details>
+    </fieldset>
+  </form>
+
+  <!-- ── output ──────────────────────────────────────────────────────── -->
+  <div class="out">
+    <div class="cmdbox">
+      <div class="bar">
+        <strong style="color:var(--accent2)">Generated command</strong>
+        <span>
+          <button type="button" class="ghost" id="reset">Reset</button>
+          <button type="button" id="copy">Copy</button>
+        </span>
+      </div>
+      <pre id="cmd"></pre>
+    </div>
+    <p class="hint">Run from the <b>repo root</b> (the folder containing <code>src/</code>) so the
+       script path resolves. First activate the env &mdash; in cmd:
+       <code>.venv\Scripts\activate.bat</code> &mdash; then run the command. Quoting follows the
+       selected shell so values with spaces (e.g. Croatian titles) paste safely.<br>
+       Prefer the <code>-m</code> form? Use <code>python -m src.utils.rounds_plotter</code> (keep the
+       <code>src.</code>, run from root) instead of the script path.</p>
+  </div>
+</div>
+
+<script>
+const KNOWN = [
+  {c:'cluster_purity',          t:'Cluster Purity',              y:'Purity (cluster_id vs latent true label)',  col:'#ffaaff'},
+  {c:'num_clusters',            t:'Number of Clusters',          y:'# Clusters',                                col:'#5599dd'},
+  {c:'total_migrations',        t:'Migrations per Round',        y:'# Particles migrated',                      col:'#ffaa00'},
+  {c:'migration_rate',          t:'Migration Rate',              y:'Migrations / particle (fraction of swarm)', col:'#ffaa00'},
+  {c:'avg_local_loss',          t:'Average Local Loss',          y:'Avg Local Loss',                            col:'#e05555'},
+  {c:'avg_direction_precision', t:'Average Direction Precision', y:'Avg Direction Precision (model vs true target dir)', col:'#33cccc'},
+  {c:'avg_spatial_precision',   t:'Average Spatial Precision',   y:'Avg Spatial Precision (1 - dist/sim_diag)', col:'#dd7733'},
+  {c:'inertia',                 t:'KMeans Inertia',              y:'Inertia (within-cluster SSE)',              col:'#9955cc'},
+  {c:'num_particles',           t:'Number of Particles',         y:'# Particles',                               col:'#aaaaaa'},
+  {c:'avg_confidence',          t:'Average Confidence',          y:'Avg Confidence',                            col:'#55bb77'},
+  {c:'avg_peer_alignment',      t:'Average Peer Alignment',      y:'Avg Peer Alignment',                        col:'#33cccc'},
+  {c:'avg_obstacle_pressure',   t:'Average Obstacle Pressure',   y:'Avg Obstacle Pressure',                     col:'#dd7733'},
+  {c:'avg_drift_velocity',      t:'Average Drift Velocity',      y:'Avg Drift Velocity',                        col:'#e05555'},
+  {c:'avg_rounds_stable',       t:'Average Rounds Stable',       y:'Avg Rounds Stable',                         col:'#ddaa33'},
+];
+const DEFAULT6 = ['cluster_purity','num_clusters','total_migrations',
+                  'avg_local_loss','avg_direction_precision','avg_spatial_precision'];
+
+// Build the per-metric override rows.
+const rowsBody = document.getElementById('rows');
+KNOWN.forEach(m => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="checkbox" class="plot" data-c="${m.c}"></td>
+    <td class="col">${m.c}</td>
+    <td><input type="text" class="ov-title"  data-c="${m.c}" placeholder="${m.t.replace(/"/g,'&quot;')}"></td>
+    <td><input type="text" class="ov-ylabel" data-c="${m.c}" placeholder="${m.y.replace(/"/g,'&quot;')}"></td>
+    <td><input type="text" class="ov-color"  data-c="${m.c}" placeholder="${m.col}"></td>
+    <td><input type="text" class="ov-ystep"  data-c="${m.c}" placeholder="auto" style="width:70px"></td>
+    <td><input type="text" class="ov-ylim"   data-c="${m.c}" placeholder="lo,hi" style="width:80px"></td>`;
+  rowsBody.appendChild(tr);
+});
+
+const $ = id => document.getElementById(id);
+const plotBoxes = () => Array.from(document.querySelectorAll('.plot'));
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+const inmode = () => document.querySelector('input[name=inmode]:checked').value;
+
+// ── comparison runs table ──────────────────────────────────────────────
+const runsBody = document.getElementById('runs');
+function addRunRow(path = '', label = '', color = ''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="run-path"  value="${path}"  placeholder="logs\cells\cfl_on__emergent_on_run08"></td>
+    <td><input type="text" class="run-label" value="${label}" placeholder="(folder name)" style="width:150px"></td>
+    <td><input type="text" class="run-color" value="${color}" placeholder="#hex (auto)" style="width:100px"></td>
+    <td><button type="button" class="ghost rm" title="remove" style="padding:4px 9px">&times;</button></td>`;
+  tr.querySelector('.rm').addEventListener('click', () => { tr.remove(); build(); });
+  runsBody.appendChild(tr);
+}
+// seed two rows (compare needs 2+)
+addRunRow('', '', '#5599dd');
+addRunRow('', '', '#e05555');
+$('addRun').addEventListener('click', () => { addRunRow(); build(); });
+
+// ── averaged-groups mode ────────────────────────────────────────────────
+const grpDefsBody = document.getElementById('grpDefs');
+let scanned = [];        // discovered run-folder dirs (relative, e.g. "cells/run01")
+const assign = {};       // folder dir -> group index (string), "" = none
+
+function groupDefs(){
+  return Array.from(grpDefsBody.querySelectorAll('tr')).map((tr, i) => ({
+    idx: i,
+    label: tr.querySelector('.grp-label').value.trim(),
+    color: tr.querySelector('.grp-color').value.trim(),
+  }));
+}
+function addGroupRow(label = '', color = ''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="grp-label" value="${label}" placeholder="e.g. CFL on (mean)"></td>
+    <td><input type="text" class="grp-color" value="${color}" placeholder="#hex (auto)" style="width:110px"></td>
+    <td><button type="button" class="ghost rm" title="remove" style="padding:4px 9px">&times;</button></td>`;
+  tr.querySelector('.rm').addEventListener('click', () => { tr.remove(); renderFolders(); build(); });
+  grpDefsBody.appendChild(tr);
+}
+addGroupRow('', '#5599dd');
+addGroupRow('', '#e05555');
+$('addGroup').addEventListener('click', () => { addGroupRow(); renderFolders(); build(); });
+
+function renderFolders(){
+  const list = $('folderList');
+  const defs = groupDefs();
+  if (!scanned.length){ list.innerHTML = '<span class="hint">No folders scanned yet.</span>'; return; }
+  list.innerHTML = '';
+  scanned.forEach(dir => {
+    const opts = ['<option value="">(none)</option>'].concat(
+      defs.map(d => `<option value="${d.idx}">${(d.label || ('Group ' + (d.idx + 1))).replace(/"/g,'&quot;')}</option>`)
+    ).join('');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;align-items:center;padding:2px 0';
+    row.innerHTML = `<select class="assign" data-folder="${dir.replace(/"/g,'&quot;')}" style="width:170px">${opts}</select>` +
+                    `<code style="font-size:12px;color:var(--accent2)">${dir}</code>`;
+    const sel = row.querySelector('.assign');
+    sel.value = defs.some(d => String(d.idx) === assign[dir]) ? assign[dir] : '';
+    sel.addEventListener('change', () => { assign[dir] = sel.value; build(); });
+    list.appendChild(row);
+  });
+}
+
+// Extract the run-folder dirs (those containing a rounds.csv) from a picked dir.
+function extractDirs(fileList){
+  const dirs = new Set();
+  Array.from(fileList || []).forEach(f => {
+    const rel = (f.webkitRelativePath || '').replace(/\\/g, '/');
+    if (rel.toLowerCase().endsWith('/rounds.csv'))
+      dirs.add(rel.slice(0, rel.length - '/rounds.csv'.length));
+  });
+  return Array.from(dirs).sort();
+}
+
+$('scan').addEventListener('change', (e) => {
+  scanned = extractDirs(e.target.files);
+  $('scanStatus').textContent = scanned.length
+    ? scanned.length + ' run folder(s) found' : 'no rounds.csv found in that folder';
+  renderFolders();
+  build();
+});
+
+// ── average-into-one-line mode ──────────────────────────────────────────
+let scannedAvg = [];
+const checkedAvg = {};        // dir -> bool
+function renderAvgFolders(){
+  const list = $('avgFolderList');
+  if (!scannedAvg.length){ list.innerHTML = '<span class="hint">No folders scanned yet.</span>'; return; }
+  list.innerHTML = '';
+  scannedAvg.forEach(dir => {
+    const row = document.createElement('label');
+    row.className = 'chk';
+    row.style.cssText = 'display:flex;gap:8px;padding:2px 0';
+    row.innerHTML = `<input type="checkbox" class="avgchk" data-folder="${dir.replace(/"/g,'&quot;')}"${checkedAvg[dir] ? ' checked' : ''}>` +
+                    `<code style="font-size:12px;color:var(--accent2)">${dir}</code>`;
+    const cb = row.querySelector('.avgchk');
+    cb.addEventListener('change', () => { checkedAvg[dir] = cb.checked; build(); });
+    list.appendChild(row);
+  });
+}
+$('scanAvg').addEventListener('change', (e) => {
+  scannedAvg = extractDirs(e.target.files);
+  $('scanStatusAvg').textContent = scannedAvg.length
+    ? scannedAvg.length + ' run folder(s) found' : 'no rounds.csv found in that folder';
+  renderAvgFolders();
+  build();
+});
+$('avgAll').addEventListener('click',  () => { scannedAvg.forEach(d => checkedAvg[d] = true);  renderAvgFolders(); build(); });
+$('avgNone').addEventListener('click', () => { scannedAvg.forEach(d => checkedAvg[d] = false); renderAvgFolders(); build(); });
+
+function syncInputMode(){
+  const m = inmode();
+  $('singleWrap').style.display   = m === 'single'  ? 'block' : 'none';
+  $('compareWrap').style.display  = m === 'compare' ? 'block' : 'none';
+  $('groupsWrap').style.display   = m === 'groups'  ? 'block' : 'none';
+  $('averageWrap').style.display  = m === 'average' ? 'block' : 'none';
+}
+
+// Shell-aware quoting: only quote when the token has characters the shell would split on.
+function quote(s, shell){
+  if (s === '') return shell === 'bash' || shell === 'powershell' ? "''" : '""';
+  const safe = /^[A-Za-z0-9_@%+=:,.#\/\\-]+$/;
+  if (safe.test(s)) return s;
+  if (shell === 'bash')        return "'" + s.replace(/'/g, "'\\''") + "'";
+  if (shell === 'powershell')  return "'" + s.replace(/'/g, "''") + "'";
+  return '"' + s.replace(/"/g, '""') + '"';                       // cmd
+}
+
+// Turn a run-folder path into the rounds.csv path inside it. Leaves an explicit
+// *.csv path untouched. Keeps whatever separator the path already uses.
+function toCsv(p){
+  p = (p || '').trim();
+  if (!p) return '';
+  if (/\.csv$/i.test(p)) return p;
+  const sep = p.includes('\\') ? '\\' : '/';
+  return p.replace(/[\/\\]+$/, '') + sep + 'rounds.csv';
+}
+
+function activeSet(){
+  const md = mode();
+  if (md === 'all') return KNOWN.map(m => m.c);
+  if (md === 'default') return DEFAULT6.slice();
+  const sel = plotBoxes().filter(b => b.checked).map(b => b.dataset.c);
+  const extra = $('extra').value.split(',').map(s => s.trim()).filter(Boolean);
+  return sel.concat(extra);
+}
+
+function syncCheckboxes(){
+  const md = mode();
+  $('extraWrap').style.display = md === 'custom' ? 'block' : 'none';
+  plotBoxes().forEach(b => {
+    if (md === 'all')      { b.checked = true;  b.disabled = true; }
+    else if (md === 'default'){ b.checked = DEFAULT6.includes(b.dataset.c); b.disabled = true; }
+    else                   { b.disabled = false; }
+  });
+}
+
+function build(){
+  const sh = $('shell').value;
+  const q  = s => quote(s, sh);
+  const im = inmode();
+  const cmp = im !== 'single';     // compare/groups: per-metric --color is ignored
+  const args = [];
+  const trimTrail = a => { a = a.slice(); while (a.length && a[a.length-1] === '') a.pop(); return a; };
+
+  if (im === 'compare'){
+    const paths = [], labels = [], colors = [];
+    Array.from(document.querySelectorAll('#runs tr')).forEach(r => {
+      const p = r.querySelector('.run-path').value.trim();
+      if (!p) return;
+      paths.push(toCsv(p));
+      labels.push(r.querySelector('.run-label').value.trim());
+      colors.push(r.querySelector('.run-color').value.trim());
+    });
+    paths.forEach(p => args.push(q(p)));
+    const lab = trimTrail(labels), clr = trimTrail(colors);
+    if (lab.some(Boolean)) args.push('--labels', q(lab.join(',')));
+    if (clr.some(Boolean)) args.push('--colors', q(clr.join(',')));
+  } else if (im === 'groups'){
+    const prefix = $('prefixPath').value.trim().replace(/[\/\\]+$/, '');
+    const byIdx = {};                         // group index -> [folder paths]
+    document.querySelectorAll('#folderList .assign').forEach(sel => {
+      if (sel.value === '') return;
+      const dir = sel.dataset.folder;
+      (byIdx[sel.value] = byIdx[sel.value] || []).push(prefix ? prefix + '/' + dir : dir);
+    });
+    const colors = [];
+    groupDefs().forEach(d => {
+      const paths = byIdx[String(d.idx)];
+      if (!paths || !paths.length) return;
+      args.push('--group', q((d.label || ('Group ' + (d.idx + 1))) + '=' + paths.join(',')));
+      colors.push(d.color);
+    });
+    const clr = trimTrail(colors);
+    if (clr.some(Boolean)) args.push('--colors', q(clr.join(',')));
+  } else if (im === 'average'){
+    const prefix = $('prefixAvgPath').value.trim().replace(/[\/\\]+$/, '');
+    document.querySelectorAll('#avgFolderList .avgchk').forEach(cb => {
+      if (!cb.checked) return;
+      const dir = cb.dataset.folder;
+      args.push(q(prefix ? prefix + '/' + dir : dir));
+    });
+    if (args.length) args.push('--avg');     // only if at least one folder is checked
+    const lab = $('avgLabel').value.trim();
+    const clr = $('avgColor').value.trim();
+    if (lab) args.push('--labels', q(lab));
+    if (clr) args.push('--colors', q(clr));
+  } else {
+    const f = $('csv').value.trim();
+    args.push(q(f ? toCsv(f) : 'rounds.csv'));
+  }
+
+  // metric selection
+  const md = mode();
+  if (md === 'all') args.push('--all');
+  else if (md === 'custom'){
+    const cols = activeSet();
+    if (cols.length) args.push('--metrics', q(cols.join(',')));
+  }
+
+  // output
+  if ($('out').value.trim())  args.push('--out', q($('out').value.trim()));
+  if ($('format').value !== 'png') args.push('--format', $('format').value);
+
+  // theme / size / dpi
+  if ($('theme').value !== 'dark') args.push('--theme', $('theme').value);
+  const fw = $('figw').value.trim(), fh = $('figh').value.trim();
+  if (fw && fh) args.push('--figsize', q(fw + ',' + fh));
+  if ($('dpi').value.trim()) args.push('--dpi', $('dpi').value.trim());
+
+  // line / marker
+  if ($('lw').value.trim())     args.push('--linewidth', $('lw').value.trim());
+  if ($('marker').value !== '') args.push('--marker', q($('marker').value));
+  if ($('ms').value.trim())     args.push('--markersize', $('ms').value.trim());
+
+  // axes
+  if ($('xlabel').value.trim() && $('xlabel').value.trim() !== 'Round')
+    args.push('--xlabel', q($('xlabel').value.trim()));
+  if ($('xstep').value.trim())    args.push('--xstep', $('xstep').value.trim());
+  if ($('suptitle').value.trim()) args.push('--suptitle', q($('suptitle').value.trim()));
+
+  // flags
+  if ($('nogrid').checked)   args.push('--no-grid');
+  if ($('noevents').checked) args.push('--no-events');
+  if ($('nolegend').checked) args.push('--no-legend');
+  if ($('show').checked)     args.push('--show');
+  if ($('exportcsv').checked) args.push('--export-csv');
+
+  // per-metric overrides (only for plotted metrics)
+  const active = new Set(activeSet());
+  const read = (cls, c) => document.querySelector(`.${cls}[data-c="${c}"]`).value.trim();
+  KNOWN.forEach(m => {
+    if (!active.has(m.c)) return;
+    const t = read('ov-title', m.c);  if (t)  args.push('--title',  q(m.c + '=' + t));
+    const y = read('ov-ylabel', m.c); if (y)  args.push('--ylabel', q(m.c + '=' + y));
+    const c = read('ov-color', m.c);  if (c && !cmp) args.push('--color', q(m.c + '=' + c));
+    const s = read('ov-ystep', m.c);  if (s)  args.push('--ystep',  q(m.c + '=' + s));
+    const l = read('ov-ylim', m.c);   if (l)  args.push('--ylim',   q(m.c + '=' + l));
+  });
+
+  $('cmd').textContent = ($('prefix').value.trim() + ' ' + args.join(' ')).trim();
+}
+
+document.getElementById('f').addEventListener('input', () => { syncInputMode(); syncCheckboxes(); build(); });
+document.getElementById('f').addEventListener('change', () => { syncInputMode(); syncCheckboxes(); build(); });
+
+$('copy').addEventListener('click', () => {
+  navigator.clipboard.writeText($('cmd').textContent).then(() => {
+    const b = $('copy'); const t = b.textContent;
+    b.textContent = 'Copied!'; setTimeout(() => b.textContent = t, 1200);
+  });
+});
+$('reset').addEventListener('click', () => {
+  document.getElementById('f').reset();
+  document.querySelectorAll('#rows input[type=text]').forEach(i => i.value = '');
+  runsBody.innerHTML = '';
+  addRunRow('', '', '#5599dd');
+  addRunRow('', '', '#e05555');
+  grpDefsBody.innerHTML = '';
+  addGroupRow('', '#5599dd');
+  addGroupRow('', '#e05555');
+  scanned = [];
+  for (const k in assign) delete assign[k];
+  renderFolders();
+  scannedAvg = [];
+  for (const k in checkedAvg) delete checkedAvg[k];
+  renderAvgFolders();
+  syncInputMode(); syncCheckboxes(); build();
+});
+
+syncInputMode();
+syncCheckboxes();
+renderFolders();
+renderAvgFolders();
+build();
+</script>
+</body>
+</html>

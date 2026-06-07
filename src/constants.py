@@ -1,5 +1,9 @@
 
-PARTICLE_DEFAULT_SPAWN_NUM = 10
+"""@file constants.py
+@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colors.
+"""
+
+PARTICLE_DEFAULT_SPAWN_NUM = 25
 
 # --- SIMULATION AREA ---
 SIM_WIDTH = 1000
@@ -7,24 +11,37 @@ SIM_HEIGHT = 800
 SIM_DIM = (SIM_WIDTH, SIM_HEIGHT)
 
 # --- GUI SETTINGS ---
-GUI_WIDTH = 300
+GUI_WIDTH = 380
 GUI_BACKGROUND_COLOR = (30, 30, 30)
 
+PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)
+PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)
+PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)
+PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)
+PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)
+
+# Per-cluster colour palette (index = cluster id).
+CLUSTER_PALETTE = [
+    PARTICLE_COLOR_RED,
+    PARTICLE_COLOR_YELLOW,
+    PARTICLE_COLOR_GREEN,
+    PARTICLE_COLOR_BLUE,
+    PARTICLE_COLOR_WHITE,
+    (0, 255, 255),   # cyan — 6th slot for max_clusters=6
+]
+
 # ADVANCED CONTROLS
-FRAME_RATE = 120
-SIM_STEPS_PER_FRAME = 4  # number of physics ticks per render frame (raises sim speed without changing fps)
+FRAME_RATE = 60
 PARTICLE_LOSE_ENERGY = 0.98
 
 PARTICLE_FORCE_LOWER_RANGE = 1
-PARTICLE_FORCE_UPPER_RANGE = 400
+PARTICLE_FORCE_UPPER_RANGE = 100
 
-WALL_HEAT = 2.5 * (1 / PARTICLE_LOSE_ENERGY)
 WALL_BOUNDARY = 25
 
-PARTICLE_DEFAULT_UPDATE_TIME = 1
 PARTICLE_POWER_OF_DISTANCE = 1
 
-PARTICLE_MAX_SPEED = 40.0
+PARTICLE_MAX_SPEED = 60.0
 
 # ALMOST NEVER CHANGES:
 SCREEN_DIM = (SIM_WIDTH + GUI_WIDTH, SIM_HEIGHT)
@@ -33,22 +50,16 @@ BACK_BLACK = (0, 0, 0)
 
 PARTICLE_DEFAULT_RADIUS = 3
 
-PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)
-PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)
-PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)
-PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)
-PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)
-
 # THE SPAWNING MARGINS
 margin_x, margin_y = (0.25, 0.25)
 center_x, center_y = (0.5, 0.5)
 PARTICLE_DEFAULT_SPAWN_FRAME = (
     (
-        int((center_x - margin_x) * (SCREEN_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
-        int((center_x + margin_x) * (SCREEN_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
+        int((center_x - margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
+        int((center_x + margin_x) * (SIM_DIM[0] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
     ),
     (
-        int((center_y - margin_y) * (SCREEN_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
-        int((center_y + margin_y) * (SCREEN_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
+        int((center_y - margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY),
+        int((center_y + margin_y) * (SIM_DIM[1] - 2 * WALL_BOUNDARY) + WALL_BOUNDARY)
     )
 )

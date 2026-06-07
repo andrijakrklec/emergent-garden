@@ -1,0 +1,7 @@
+{
+  "_comment": "CELLS — five tight, cohesive blobs that strongly repel one another. Territorial, cell-like separation with clear boundaries. Relies on the g defaults (no per-pair overrides).",
+  "num_clusters": 5,
+  "g_attract": -0.6,
+  "g_repel": 0.9,
+  "pair_rules": {}
+}

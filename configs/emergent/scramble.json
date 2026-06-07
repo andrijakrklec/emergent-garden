@@ -1,0 +1,7 @@
+{
+  "_comment": "SCRAMBLE — universal strong repulsion: every particle repels every other regardless of cluster, so the swarm scatters across the whole sim and can't reach its assigned anchors. Designed for the CFL ablation thesis to showcase the worst-case effect of emergent forces. With this preset, attraction_enabled=true should produce: spatial_precision dropping ~30% (particles can't navigate to targets), purity collapsing toward chance (~1/K spatial structure destroyed), while direction_precision (the cognitive metric, unaffected by physics) stays high — the model still points correctly, the body just can't get there. attraction_enabled=false runs cleanly as a baseline.",
+  "num_clusters": 5,
+  "g_attract": 30.0,
+  "g_repel": 30.0,
+  "pair_rules": {}
+}

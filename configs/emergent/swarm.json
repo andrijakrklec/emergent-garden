@@ -1,0 +1,7 @@
+{
+  "_comment": "SWARM — three loosely cohesive groups that also mildly attract each other, so they mingle into a single drifting super-swarm that keeps reshaping.",
+  "num_clusters": 3,
+  "g_attract": -0.3,
+  "g_repel": -0.25,
+  "pair_rules": {}
+}
