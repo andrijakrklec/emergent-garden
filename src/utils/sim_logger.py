@@ -2,7 +2,7 @@
 @brief Per-round CSV/JSONL logging and matplotlib visualisation for the CFL simulation.
 
 Usage (in game.py):
-    from src.sim_logger import SimLogger
+    from src.utils.sim_logger import SimLogger
     self.logger = SimLogger(log_dir="logs")
 
     # Inside run_cfl_round call-site:
@@ -35,7 +35,7 @@ import numpy as np
 
 from src.constants import SIM_DIM
 
-# Sim diagonal — normaliser for distance-based metrics (spatial_precision,
+# Sim diagonal — normalizer for distance-based metrics (spatial_precision,
 # local_loss's geo component).
 _MAX_DIST = math.hypot(SIM_DIM[0], SIM_DIM[1])
 
@@ -66,7 +66,7 @@ def _delta_arrow(current: float, previous: float, threshold: float = 0.005) -> s
     return "~"
 
 
-def _cluster_purity(particles) -> Optional[float]:
+def _cluster_purity(particles) -> float:
     """@brief Clustering purity of predicted @c cluster_id against ground-truth @c _true_cluster_id.
 
     Purity = (1/N) * Σ_k max_j |{p : p.cluster_id = k} ∩ {p : p._true_cluster_id = j}|.
@@ -78,23 +78,14 @@ def _cluster_purity(particles) -> Optional[float]:
     individual learning leaves @c cluster_id pinned at the random init so purity
     hovers near 1/K.
 
-    Returns None when no particle carries a ground-truth label (legacy runs);
-    callers should treat that as N/A rather than logging a fake 1.0.
-
     @param particles List of Particle agents.
-    @return float in [0, 1] or None.
+    @return float in [0, 1] (0.0 for an empty list).
     """
     if not particles:
-        return None
-    has_truth = any(getattr(p, "_true_cluster_id", -1) >= 0 for p in particles)
-    if not has_truth:
-        return None
+        return 0.0
     counts: Dict[int, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
     for p in particles:
-        true_cid = getattr(p, "_true_cluster_id", -1)
-        if true_cid < 0:
-            continue
-        counts[p.cluster_id][true_cid] += 1
+        counts[p.cluster_id][p._true_cluster_id] += 1
     matched = sum(max(true_counts.values()) for true_counts in counts.values())
     return matched / len(particles)
 
@@ -110,7 +101,7 @@ def _spatial_precision(particle, max_dist: float) -> float:
     physical errors.
 
     @param particle A Particle with @c x, @c y, @c _target_x, @c _target_y.
-    @param max_dist Sim diagonal (normaliser; same one used by local_loss).
+    @param max_dist Sim diagonal (normalizer; same one used by local_loss).
     @return float in [0, 1].
     """
     dx = particle._target_x - particle.x
@@ -299,7 +290,7 @@ class SimLogger:
         avg_spatial_prec   = float(np.mean(spatial_precisions)) if spatial_precisions else 0.0
 
         # Cluster purity: how well predicted cluster_id matches the latent
-        # _true_cluster_id labels. None when no ground truth is set (legacy).
+        # _true_cluster_id labels.
         purity = _cluster_purity(particles)
 
         total_mig = sum(transfers.values()) if transfers else 0
@@ -483,8 +474,8 @@ class SimLogger:
                 _style_ax(ax)
 
             def _line(ax, key, label, color, ylim=None):
-                # Filter rounds where the metric is None — e.g. cluster_purity is
-                # None for legacy runs that lack ground-truth labels.
+                # Skip rounds where this metric is absent (a key missing from
+                # some history rows) so a partial series still plots.
                 pairs = [(r, h.get(key)) for r, h in zip(rounds, self._history)
                          if h.get(key) is not None]
                 if not pairs:

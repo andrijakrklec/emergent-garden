@@ -1,11 +1,11 @@
 """@file main.py
 @brief Command-line entry point: parse @c --config and launch the simulation GUI.
 
-Original emergent-garden base by Vishal Paudel (2023); extended for the CFL thesis.
+Original emergent-garden base by Vishal Paudel (2023).
 """
 
 import argparse
-from src.game import Game
+from src.gui import Game
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

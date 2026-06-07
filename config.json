@@ -1,10 +1,10 @@
 {
   "_comment_emergent_preset": "Emergent behaviour preset, loaded from configs/emergent/<name>.json and overlaid on this file. Options: default, cells, swarm, orbits, gas, chains. Each preset sets num_clusters, g_attract, g_repel and pair_rules. Set to null to instead use any g_attract/g_repel/pair_rules/num_clusters listed in THIS file (or built-in defaults). NOTE: attraction_enabled must be true to see the effect.",
-  "emergent_preset": "gas",
+  "emergent_preset": "default",
 
   "_comment_toggles": "Preconfigure simulation toggles. Both default to true if omitted.",
-  "cfl_enabled": false,
-  "attraction_enabled": true,
+  "cfl_enabled": true,
+  "attraction_enabled": false,
 
   "_comment_max_rounds": "Stop the simulation after this many rounds (counts regardless of whether CFL is enabled). Set to null (or omit) to run indefinitely.",
   "max_rounds": 200,

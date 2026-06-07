@@ -1,6 +1,6 @@
 
 """@file constants.py
-@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colours.
+@brief Central simulation constants: dimensions, frame rate, particle/physics tunables, colors.
 """
 
 PARTICLE_DEFAULT_SPAWN_NUM = 25
@@ -13,6 +13,22 @@ SIM_DIM = (SIM_WIDTH, SIM_HEIGHT)
 # --- GUI SETTINGS ---
 GUI_WIDTH = 380
 GUI_BACKGROUND_COLOR = (30, 30, 30)
+
+PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)
+PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)
+PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)
+PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)
+PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)
+
+# Per-cluster colour palette (index = cluster id).
+CLUSTER_PALETTE = [
+    PARTICLE_COLOR_RED,
+    PARTICLE_COLOR_YELLOW,
+    PARTICLE_COLOR_GREEN,
+    PARTICLE_COLOR_BLUE,
+    PARTICLE_COLOR_WHITE,
+    (0, 255, 255),   # cyan — 6th slot for max_clusters=6
+]
 
 # ADVANCED CONTROLS
 FRAME_RATE = 60
@@ -33,12 +49,6 @@ SCREEN_DIM = (SIM_WIDTH + GUI_WIDTH, SIM_HEIGHT)
 BACK_BLACK = (0, 0, 0)
 
 PARTICLE_DEFAULT_RADIUS = 3
-
-PARTICLE_COLOR_RED = (0xff, 0x00, 0x00)
-PARTICLE_COLOR_YELLOW = (0xff, 0xA0, 0x00)
-PARTICLE_COLOR_GREEN = (0x00, 0xff, 0x00)
-PARTICLE_COLOR_BLUE = (0x00, 0x00, 0xff)
-PARTICLE_COLOR_WHITE = (0xff, 0xff, 0xff)
 
 # THE SPAWNING MARGINS
 margin_x, margin_y = (0.25, 0.25)

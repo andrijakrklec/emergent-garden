@@ -250,9 +250,9 @@ A federation round fires every `cluster_update_interval = 200` physics steps
 | [`main.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/main.py) | Entry point. Parses `--config`, constructs `Game`, runs the loop. |
 | [`src/game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py) | `SimulationThread` (all state + physics) and `Game` (pygame GUI/render/input). Config loading and merging. |
 | [`src/particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py) | `Particle` model, `local_train`, `update_peer_alignment`, `apply_physics_rules`, and the IFCA round `run_cfl_round`. |
-| [`src/sim_logger.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/sim_logger.py) | `SimLogger` — per-round CSV/JSONL logging and matplotlib plot generation. |
+| [`src/utils/sim_logger.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/sim_logger.py) | `SimLogger` — per-round CSV/JSONL logging and matplotlib plot generation. |
 | [`src/constants.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/constants.py) | Simulation dimensions, frame rate, particle/physics constants, colors. |
-| [`run_all.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/run_all.py) | Launches the four ablation configs as parallel processes. |
+| [`tools/run_all.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/tools/run_all.py) | Launches the four ablation configs as parallel processes. |
 | [`config.json`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json) | Master config (forces, clusters, obstacles, toggles, rules). |
 | [`configs/`](https://github.com/andrijakrklec/emergent-garden/tree/HEAD/configs) | Per-experiment overrides; only list keys that differ from master. |
 
@@ -318,7 +318,7 @@ python main.py --config configs/cfl_on__emergent_on.json
 **All four ablation configs at once** (one pygame window + log directory each):
 
 ```sh
-python run_all.py
+python tools/run_all.py
 ```
 
 Each run writes a timestamped directory under `logs/run_<timestamp>[_tags]/` and,
@@ -398,7 +398,7 @@ average loss and confidence (tracked each round in `SimulationThread._step`).
 
 ### Logged artifacts
 
-`SimLogger` ([`src/sim_logger.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/sim_logger.py)) writes per run:
+`SimLogger` ([`src/utils/sim_logger.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/sim_logger.py)) writes per run:
 
 | File | Contents |
 |------|----------|
@@ -451,7 +451,6 @@ loss/confidence bars, and a rolling sparkline of loss and confidence.
 ```
 emergent-garden/
 ├── main.py                 # entry point (--config)
-├── run_all.py              # launch the 2×2 ablation in parallel
 ├── config.json             # master configuration
 ├── requirements.txt
 ├── Doxyfile                # Doxygen API-doc configuration
@@ -463,8 +462,9 @@ emergent-garden/
 ├── src/
 │   ├── game.py             # SimulationThread + Game (GUI), config merge
 │   ├── particle.py         # Particle model, local_train, IFCA, physics
-│   ├── sim_logger.py       # CSV/JSONL logging + matplotlib plots
+│   ├── utils/sim_logger.py # CSV/JSONL logging + matplotlib plots
 │   └── constants.py        # dimensions, rates, physics constants, colors
+├── tools/run_all.py        # launch the 2×2 ablation in parallel
 ├── docs/images/            # screenshots
 └── logs/                   # per-run output (CSV + plots), created at runtime
 ```
