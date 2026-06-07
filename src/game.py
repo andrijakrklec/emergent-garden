@@ -59,7 +59,7 @@ def _load_merged_config(config_path: str, preset_override: Optional[str] = None)
 
     Three layers are merged, each overriding the previous:
       1. the master config.json (globals plus the @c emergent_preset selector);
-      2. the emergent preset it names (configs/emergent/<name>.json), if any;
+      2. the emergent preset it names (`configs/emergent/<name>.json`), if any;
       3. the per-run --config file (used by run_all.py), if different from master.
     The @c pair_rules table is deep-merged at each step; comment keys (those
     starting with '_') are dropped.
@@ -118,6 +118,8 @@ def _load_force_config(config_path: str, preset_override: Optional[str] = None) 
     config is missing or malformed.
 
     @param config_path Path to the per-experiment config.
+    @param preset_override If given, overrides the master's @c emergent_preset selector
+        (passed through to _load_merged_config; used by the --preset CLI flag).
     @return tuple (g_attract, g_repel, rules, force_scale) where @c rules maps (i, j) -> float.
     """
     FALLBACK_SCALE    = 25.0
@@ -158,7 +160,7 @@ def apply_physics_rules(
         attraction_enabled: bool = True):
     """@brief Integrate one physics tick over the agents (the physics 'system').
 
-    The simulation-side glue around the pure @ref src.physics force library: it
+    The simulation-side glue around the pure @ref physics force library: it
     loops over Particle objects, resolves each pair's force via
     @ref physics.pair_force (emergency repulsion + the standard gravity formula),
     adds soft-obstacle and model-directed behavioral pushes, then integrates
@@ -312,7 +314,7 @@ class SimulationThread(threading.Thread):
 
     def __init__(self, cmd_queue: queue.Queue, config_path: str = DEFAULT_CONFIG_PATH,
                  log_dir: str = "logs", run_name: Optional[str] = None, preset: Optional[str] = None):
-        """@brief Construct the simulation thread and initialise all state from config.
+        """@brief Construct the simulation thread and initialize all state from config.
 
         @param cmd_queue Thread-safe queue the GUI uses to send commands (toggles, edits, detonate).
         @param config_path Path to the configuration file to load.
@@ -390,7 +392,7 @@ class SimulationThread(threading.Thread):
 
         Spawns one populated group per cluster when @c num_clusters is configured
         (skipping the initial CFL round), or five randomly-assigned groups settled by
-        one CFL round otherwise. Also seeds targets, trails, colours and the SimLogger.
+        one CFL round otherwise. Also seeds targets, trails, colors and the SimLogger.
         """
         _cfg = _load_merged_config(self.config_path, self.preset)
         _nc = _cfg.get("num_clusters")
@@ -574,7 +576,7 @@ class SimulationThread(threading.Thread):
             print(f"\n[ATTRACTION] Inter-particle forces {'ENABLED' if self.attraction_enabled else 'DISABLED'}")
 
     def _trigger_explosion(self):
-        """@brief Scatter every agent and randomise its model — a re-convergence stress test."""
+        """@brief Scatter every agent and randomize its model — a re-convergence stress test."""
         for p in self.all_particles:
             p.vx = random.uniform(-80, 80)
             p.vy = random.uniform(-80, 80)

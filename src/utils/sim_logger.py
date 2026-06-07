@@ -170,7 +170,7 @@ class SimLogger:
         @param cfl_enabled Whether federation is on (recorded in the plot labels).
         @param attraction_enabled Whether emergent forces are on (recorded in the plot labels).
         @param run_name Explicit run-folder name; when given it overrides the
-            "run_<timestamp>_<tags>" default (used for repeated/batch runs).
+            `run_<timestamp>_<tags>` default (used for repeated/batch runs).
         """
         if run_name:
             self.run_dir = os.path.join(log_dir, run_name)

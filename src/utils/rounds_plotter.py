@@ -1,7 +1,7 @@
 """@file rounds_plotter.py
 @brief Standalone, fully-customizable re-plotter for a SimLogger ``rounds.csv``.
 
-Reads a single ``rounds.csv`` (written by @ref src.utils.sim_logger.SimLogger) and
+Reads a single ``rounds.csv`` (written by SimLogger) and
 renders the same round-level metrics that land in ``global_metrics.png`` — but
 each metric becomes its **own** figure instead of a 2x3 panel, and every cosmetic
 property is overridable: titles, axis labels, axis tick granularity, colors,
