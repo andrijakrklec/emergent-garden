@@ -5,7 +5,7 @@ Each repetition launches all four configurations concurrently (one pygame window
 each), then waits for that batch of four to finish before starting the next
 repetition. Every run is written to its own folder:
 
-    logs/<config>/<config>_run<NN>/
+    `logs/<config>/<config>_run<NN>/`
 
 so the repeated runs of each configuration are grouped together for averaging.
 
@@ -52,6 +52,8 @@ if __name__ == "__main__":
                 [sys.executable, "main.py", "--config", cfg,
                  "--log-dir", log_dir, "--run-name", run_name],
                 cwd=root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
             procs.append((name, p))
             print(f"[run_all]   started PID {p.pid} -> logs/{name}/{run_name}")
