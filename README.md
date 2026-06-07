@@ -91,7 +91,7 @@ sam bira grozd čiji mu emitirani model daje najmanji gubitak.
 **(EN)** IFCA replaces a fixed assignment with an **argmin-loss assignment**: every
 round, each cluster broadcasts an aggregated model θ_k; each particle evaluates
 *every* θ_k against its own situation and joins the cluster with the lowest loss
-([`run_cfl_round`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)). The number of clusters is not
+([`run_cfl_round`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py)). The number of clusters is not
 fixed — clusters **split** when their members disagree and **merge** when they
 become redundant (`MIN_CLUSTERS = 2`, `MAX_CLUSTERS = 6`).
 
@@ -105,7 +105,7 @@ privlačenja/odbijanja, izbjegavanja prepreka i federalne dinamike učenja.
 
 **(EN)** The emergent layer descends from the original *Emergent Garden* particle
 sandbox (see [Credits](#credits--license)). Simple per-pair attraction/repulsion
-rules ([`apply_physics_rules`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)) produce flocking,
+rules (`apply_physics_rules` in [`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py), built on the pure [`physics.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py) force library) produce flocking,
 splitting, and reorganization that no single rule encodes.
 
 ---
@@ -136,13 +136,14 @@ The cognitive domain runs two processes:
 - **Local training** — `local_train()` ([`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)): each
   agent nudges its heading toward its (bias-corrupted) ideal direction, blended
   with obstacle avoidance, and updates confidence/pressure/loss.
-- **Federation** — `run_cfl_round()`: the IFCA round described
+- **Federation** — `run_cfl_round()` ([`cfl.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py)): the IFCA round described
   [below](#mehanizam-grozdne-agregacije--cluster-aggregation-ifca).
 
 ### Fizikalna domena / Physical domain
 
-`apply_physics_rules()` ([`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)) integrates
-motion each physics tick:
+`apply_physics_rules()` ([`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)) integrates
+motion each physics tick, delegating the force math to the pure
+[`physics.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py) library:
 
 - **Inter-agent forces** — attraction/repulsion governed by cluster membership and
   the per-pair **rules matrix** (intra-cluster = diagonal, inter-cluster = off-diagonal).
@@ -153,11 +154,10 @@ motion each physics tick:
 
 ### Threading model
 
-The cognitive/physical simulation and the GUI run on **separate threads**
-([`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)):
+The cognitive/physical simulation and the GUI run on **separate threads**:
 
-- `SimulationThread` (daemon) owns *all* state and steps physics at `PHYSICS_HZ = 60`.
-- `Game` (main thread) renders at `FRAME_RATE = 60` by reading an immutable
+- `SimulationThread` (daemon, [`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)) owns *all* state and steps physics at `PHYSICS_HZ = 60`.
+- `Game` (main thread, [`gui.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/gui.py)) renders at `FRAME_RATE = 60` by reading an immutable
   `SimSnapshot` under a lock, and sends user actions back through a `queue.Queue`.
 
 This keeps the physics loop deterministic and decoupled from rendering/input latency.
@@ -186,7 +186,7 @@ The two domains are not independent — they form a closed loop:
 **Cognitive → Physical** (the model drives motion):
 - The learned heading `model[0:2]`, scaled by `confidence` (`model[2]`) and
   amplified by `obstacle_pressure`, becomes a **behavioral force**
-  (`BEHAVIORAL_FORCE = 30.0`, in [`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)).
+  (`BEHAVIORAL_FORCE = 30.0`, a [`cfl_params.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py) tunable applied in [`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)).
 - An agent's `cluster_id` selects which **attraction/repulsion rule** applies to
   every pairwise interaction.
 
@@ -207,8 +207,8 @@ measures.
 
 ## Mehanizam grozdne agregacije / Cluster aggregation (IFCA)
 
-A federation round fires every `cluster_update_interval = 200` physics steps
-(≈3.3 s). `run_cfl_round()` ([`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)) performs:
+A federation round fires every `cluster_update_interval` physics steps.
+`run_cfl_round()` ([`cfl.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py)) performs:
 
 1. **Broadcast** — build each cluster's model θ_k as a **confidence-weighted mean**
    of its members (`_compute_cluster_models`). Empty clusters get a
@@ -217,7 +217,7 @@ A federation round fires every `cluster_update_interval = 200` physics steps
    (geometric distance + directional alignment to that cluster's target) and joins
    the lowest-loss cluster.
 3. **Hysteresis** — an agent only switches if the new cluster is at least
-   `MIGRATION_HYSTERESIS = 0.5` (50%) better, preventing flip-flopping between
+   `MIGRATION_HYSTERESIS = 0.6` (60%) better, preventing flip-flopping between
    near-equivalent clusters.
 4. **Aggregation with age-adaptive blend** — members blend toward θ_k. Newborn
    clusters keep more local state (`BLEND_LOCAL_NEW = 0.75`) and mature over
@@ -234,6 +234,10 @@ A federation round fires every `cluster_update_interval = 200` physics steps
      (`SPLIT_LOSS_THRESHOLD = 0.30`), 2-means on member heading vectors carves off a
      new cluster.
 
+All thresholds and weights above are defined in
+[`cfl_params.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py)
+and read through getter functions (e.g. `get_split_loss_threshold()`).
+
 > **Why IFCA and not plain KMeans?** Earlier versions used KMeans on the identity
 > vectors (see commit `changed kmeans to ifca for better clustering`). Under IFCA,
 > assignment is driven by *predictive loss under each broadcast model* rather than
@@ -248,10 +252,15 @@ A federation round fires every `cluster_update_interval = 200` physics steps
 | File | Responsibility |
 |------|----------------|
 | [`main.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/main.py) | Entry point. Parses `--config`, constructs `Game`, runs the loop. |
-| [`src/game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py) | `SimulationThread` (all state + physics) and `Game` (pygame GUI/render/input). Config loading and merging. |
-| [`src/particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py) | `Particle` model, `local_train`, `update_peer_alignment`, `apply_physics_rules`, and the IFCA round `run_cfl_round`. |
+| [`src/gui.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/gui.py) | `Game` — the pygame front-end: renders `SimSnapshot`s and forwards input. |
+| [`src/game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py) | `SimulationThread` (all sim state + the physics/federation step loop), `SimSnapshot`, the `apply_physics_rules` tick, and config loading/merging. |
+| [`src/particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py) | `Particle` model, `local_train` (cognitive update), and `update_peer_alignment`. |
+| [`src/cfl.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py) | IFCA federation: `run_cfl_round` (+ merge/split helpers), `compute_cluster_stats`, and `instantiate_group`. |
+| [`src/cfl_params.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl_params.py) | CFL/IFCA tunables (split/merge thresholds, blend schedule, bias, hysteresis) exposed via getter functions. |
+| [`src/physics.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/physics.py) | Pure, dependency-free force library: gravity, emergency repulsion, attraction/repulsion coefficient, obstacle push, velocity integration. |
+| [`src/constants.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/constants.py) | Simulation dimensions, frame rate, particle/physics constants, colors, `CLUSTER_PALETTE`. |
 | [`src/utils/sim_logger.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/sim_logger.py) | `SimLogger` — per-round CSV/JSONL logging and matplotlib plot generation. |
-| [`src/constants.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/constants.py) | Simulation dimensions, frame rate, particle/physics constants, colors. |
+| [`src/utils/rounds_plotter.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/utils/rounds_plotter.py) | Standalone post-hoc re-plotter for a run's `rounds.csv` (`python -m src.utils.rounds_plotter`). |
 | [`tools/run_all.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/tools/run_all.py) | Launches the four ablation configs as parallel processes. |
 | [`config.json`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/config.json) | Master config (forces, clusters, obstacles, toggles, rules). |
 | [`configs/`](https://github.com/andrijakrklec/emergent-garden/tree/HEAD/configs) | Per-experiment overrides; only list keys that differ from master. |
@@ -260,7 +269,7 @@ A federation round fires every `cluster_update_interval = 200` physics steps
 
 - **Physics step**: `SimulationThread._step()` ([`game.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/game.py)) — drifts
   targets, runs local training, fires federation rounds, applies physics, samples trails.
-- **Federation round**: `run_cfl_round()` ([`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)).
+- **Federation round**: `run_cfl_round()` ([`cfl.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/cfl.py)).
 - **Snapshot for GUI**: `SimulationThread._build_snapshot()` → immutable
   `SimSnapshot` dataclass.
 
@@ -375,6 +384,28 @@ file in [`configs/emergent/`](https://github.com/andrijakrklec/emergent-garden/t
 | `orbits`  | 4 | Central core (cluster 0) attracts satellites that repel each other — ring / orbit. |
 | `gas`     | 4 | Clusters self-repel and repel each other — particles disperse like a gas. |
 | `chains`  | 5 | Only adjacent clusters attract (0-1-2-3-4) — linked strands. |
+| `scramble`| 5 | Universal strong repulsion — every agent repels every other, so the swarm scatters and can't reach its anchors (worst-case ablation stress test). |
+
+![default preset](docs/images/cfl_off__emergent_on__preset_default_thumb.png)<br>
+**default** — balanced cohesion / spread
+
+![cells preset](docs/images/cfl_on__emergent_on__preset_cells_thumb.png)<br>
+**cells** — tight cohesive blobs that strongly repel each other
+
+![swarm preset](docs/images/cfl_on__emergent_on__preset_swarm_thumb.png)<br>
+**swarm** — one drifting super-swarm
+
+![orbits preset](docs/images/cfl_on__emergent_on__preset_orbits_thumb.png)<br>
+**orbits** — central core attracts satellites that repel each other
+
+![gas preset](docs/images/cfl_off__emergent_on__preset_gas_thumb.png)<br>
+**gas** — every cluster repels; particles disperse
+
+![chains preset](docs/images/cfl_off__emergent_on__preset_chains_thumb.png)<br>
+**chains** — only adjacent clusters attract (0-1-2-3-4)
+
+![scramble preset](docs/images/cfl_on__emergent_on__preset_scramble_thumb.png)<br>
+**scramble** — universal repulsion; the swarm can't reach its anchors
 
 Add your own by dropping a `configs/emergent/<name>.json` with the same fields and
 setting `emergent_preset` to `<name>`.
@@ -395,6 +426,18 @@ The two coupling directions are toggled independently to isolate their effects:
 `run_all.py` launches all four simultaneously so the runs are directly comparable.
 The metrics tracked **every round regardless of mode** (so toggling is visible) are
 average loss and confidence (tracked each round in `SimulationThread._step`).
+
+![CFL off, emergent off](docs/images/cfl_off__emergent_off_thumb.png)<br>
+**CFL off · emergent off** — no coupling; agents just drift to personal targets
+
+![CFL on, emergent off](docs/images/cfl_on__emergent_off_thumb.png)<br>
+**CFL on · emergent off** — federation only; clusters converge on their anchors
+
+![CFL off, emergent on](docs/images/cfl_off__emergent_on__preset_default_thumb.png)<br>
+**CFL off · emergent on** — physics only; spatial forces, no federation
+
+![CFL on, emergent on](docs/images/cfl_on__emergent_on__preset_cells_thumb.png)<br>
+**CFL on · emergent on** — full coupling; federated clusters + emergent physics
 
 ### Logged artifacts
 
@@ -450,23 +493,32 @@ loss/confidence bars, and a rolling sparkline of loss and confidence.
 
 ```
 emergent-garden/
-├── main.py                 # entry point (--config)
-├── config.json             # master configuration
+├── main.py                      # entry point (--config)
+├── config.json                  # master configuration
 ├── requirements.txt
-├── Doxyfile                # Doxygen API-doc configuration
-├── configs/                # per-experiment overrides
+├── Doxyfile                     # Doxygen API-doc configuration
+├── configs/                     # per-experiment overrides
 │   ├── cfl_on__emergent_on.json
 │   ├── cfl_on__emergent_off.json
 │   ├── cfl_off__emergent_on.json
-│   └── cfl_off__emergent_off.json
+│   ├── cfl_off__emergent_off.json
+│   └── emergent/                # named behaviour presets (default, cells, …)
 ├── src/
-│   ├── game.py             # SimulationThread + Game (GUI), config merge
-│   ├── particle.py         # Particle model, local_train, IFCA, physics
-│   ├── utils/sim_logger.py # CSV/JSONL logging + matplotlib plots
-│   └── constants.py        # dimensions, rates, physics constants, colors
-├── tools/run_all.py        # launch the 2×2 ablation in parallel
-├── docs/images/            # screenshots
-└── logs/                   # per-run output (CSV + plots), created at runtime
+│   ├── game.py                  # SimulationThread engine + SimSnapshot + apply_physics_rules
+│   ├── gui.py                   # Game — pygame render/input front-end
+│   ├── particle.py              # Particle model, local_train, update_peer_alignment
+│   ├── cfl.py                   # IFCA round, clustering, instantiate_group
+│   ├── cfl_params.py            # CFL/IFCA tunables (getters)
+│   ├── physics.py               # pure force library
+│   ├── constants.py             # dimensions, rates, physics constants, colors, palette
+│   └── utils/
+│       ├── sim_logger.py        # CSV/JSONL logging + matplotlib plots
+│       └── rounds_plotter.py    # standalone rounds.csv re-plotter
+├── tools/
+│   ├── run_all.py               # launch the 2×2 ablation in parallel
+│   └── rounds_plotter_form.html # command builder for rounds_plotter
+├── docs/images/                 # screenshots
+└── logs/                        # per-run output (CSV + plots); gitignored
 ```
 
 ---
