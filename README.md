@@ -25,7 +25,7 @@
 7. [Installation](#installation)
 8. [Running the simulation](#running-the-simulation)
 9. [Configuration reference](#configuration-reference)
-10. [Evaluation & experiment design / Vrednovanje](#evaluation--experiment-design--vrednovanje)
+10. [Evaluation & experiment design / Vrednovanje](#evaluation--experiment-design--usporedba-konfiguracija)
 11. [Visualization & controls](#visualization--controls)
 12. [Project structure](#project-structure)
 13. [Credits & license](#credits--license)
@@ -38,13 +38,13 @@
 značajan izazov u području raspodijeljenih inteligentnih sustava. Ovaj projekt
 modelira **dvosmjernu povezanost** između dvije razine sustava:
 
-- **Kognitivna razina** — svaki agent uči vlastiti model, a modeli se **spontano
-  dijele u grozdove (klastere)** i agregiraju putem federalnog učenja.
+- **Kognitivna razina** — svaki agent trenira vlastiti model, 
+  a modeli se agregiraju unutar grozdova (klastera) putem federalnog učenja.
 - **Fizikalna razina** — agenti se kreću u 2D prostoru, međusobno se privlače i
   odbijaju, zaobilaze prepreke i odbijaju se od zidova.
 
-Iz interakcije te dvije razine — naučeni model utječe na gibanje, a gibanje i
-prostorno susjedstvo natrag utječu na model i pripadnost grozdu — nastaju
+Iz interakcije te dvije razine — naučeni model utječe na gibanje, a 
+prostorno pozicioniranje povratno utječe na model i pripadnost grozdu — nastaju
 **složeni kolektivni obrasci koji nisu unaprijed programirani**, već proizlaze iz
 jednostavnih pravila na razini pojedinačnog agenta.
 
@@ -66,25 +66,24 @@ emergent physics on/off) isolates the contribution of each coupling direction.
 
 ### 1. Federalno učenje / Federated Learning
 
-**(HR)** Federalno učenje je pristup raspodijeljenom strojnom učenju u kojem više
-"klijenata" uči lokalne modele na vlastitim podacima, a zajednički model nastaje
-**agregacijom** (npr. usrednjavanjem) lokalnih modela, bez razmjene sirovih
+**(HR)** Federalno učenje je pristup raspodijeljenom strojnom učenju u kojem sudionici (klijenti) 
+treniraju lokalne modele na vlastitim podacima, a zajednički model nastaje
+**agregacijom** (npr. prosjekom) lokalnih modela, bez razmjene sirovih
 podataka. Ključni izazov su **non-IID podaci**: svaki klijent vidi sustavno
 drugačiju distribuciju.
 
 **(EN)** In this simulation each particle is a federated *client*. Its "data" is the
 geometry it experiences — direction to its personal target, obstacle pressure,
-neighborhood. Crucially, each particle is born with a fixed **non-IID directional
+neighborhood. Crucially, each particle is born with a **non-IID directional
 bias** (the `_local_bias` vector in [`particle.py`](https://github.com/andrijakrklec/emergent-garden/blob/HEAD/src/particle.py)): it
 *systematically misperceives* the ideal heading. A single agent learning alone can
-never average this bias away; **federation across a cluster cancels it**, which is
-precisely why CFL improves the loss metric and solo learning does not.
+never average this bias away; **federation across a cluster cancels it**, which is why CFL should improve the loss metric.
 
 ### 2. Grupiranje u grozdove / Clustering — IFCA
 
 **(HR)** Kada klijenti pripadaju različitim "skupinama" s različitim optimalnim
-modelima, jedan globalni model nije dovoljan. **Grozdno (klasterirano) federalno
-učenje** rješava to tako da klijente grupira i agregira model **po grozdu**. Ovdje
+modelima, jedan globalni model nije dovoljan. **(Klasterirano) federalno
+učenje u grozdovima** rješava to tako da klijente grupira i agregira model **po grozdu**. Ovdje
 se koristi **IFCA** (*Iterative Federated Clustering Algorithm*): svaki klijent
 sam bira grozd čiji mu emitirani model daje najmanji gubitak.
 
@@ -99,8 +98,8 @@ become redundant (`MIN_CLUSTERS = 2`, `MAX_CLUSTERS = 6`).
 
 **(HR)** Izviruće (emergentno) ponašanje označava složene kolektivne obrasce koji
 nisu eksplicitno programirani, nego nastaju iz jednostavnih lokalnih pravila i
-interakcija među agentima. U ovom sustavu nijedno pravilo ne nalaže "formiraj
-jato" ili "podijeli grozd na dva" — ti obrasci **izviru** iz kombinacije
+interakcija među agentima. U ovom sustavu pravila ne nalažu "formiraj
+jato" — ti obrasci **izviru** iz kombinacije
 privlačenja/odbijanja, izbjegavanja prepreka i federalne dinamike učenja.
 
 **(EN)** The emergent layer descends from the original *Emergent Garden* particle
@@ -200,7 +199,7 @@ The two domains are not independent — they form a closed loop:
   influences *which model* it federates into.
 
 Because the loop is closed, toggling either direction changes the global outcome —
-which is exactly what the [2×2 ablation](#evaluation--experiment-design--vrednovanje)
+which is exactly what the [2×2 ablation](#evaluation--experiment-design--usporedba-konfiguracija)
 measures.
 
 ---
@@ -412,7 +411,7 @@ setting `emergent_preset` to `<name>`.
 
 ---
 
-## Evaluation & experiment design / Vrednovanje
+## Evaluation & experiment design / Usporedba konfiguracija
 
 ### The 2×2 ablation
 
@@ -449,21 +448,18 @@ average loss and confidence (tracked each round in `SimulationThread._step`).
 | `migrations.csv` | One row per (round, src, dst) migration event. |
 | `cluster_sizes.csv` | Per (round, cluster): size, model health, model divergence, spatial spread. |
 | `events.jsonl` | Split / merge / explosion events, one JSON object per line. |
-| `sim_log.txt` | Human-readable mirror of the terminal output. |
+| `sim_log.txt` | Mirror of the terminal output. |
 
 ### Generated plots
 
 | Plot | Shows |
 |------|-------|
-| `global_metrics.png` | 2×3 grid: inertia, cluster count, migrations (CFL row) + confidence, loss, peer-alignment. CFL-only panels are greyed out when disabled. |
+| `global_metrics.png` | 2×3 grid: cluster purity, cluster count, migrations (CFL row) + local loss, direction precision, spatial precision. CFL-only panels are greyed out when disabled. |
 | `cluster_sizes.png` | Per-cluster population over rounds, with split/merge/explosion markers. |
 | `cluster_health.png` | Per-cluster confidence and loss (fixed axes for cross-run comparison). |
 | `migration_heatmap.png` | Cumulative agent migrations between clusters (CFL only). |
 | `cohesion_divergence.png` | Per-cluster model divergence and spatial spread. |
 
-Plots use a consistent dark theme and event markers so runs from different configs
-can be visually compared side by side — the "prikladna vizualna interpretacija"
-called for in the thesis.
 
 ---
 
@@ -482,7 +478,7 @@ The live window is split into the **simulation area** (left) and a **dashboard**
   attraction is enabled. Manual edits are clamped to [−50, 50].
 
 **Keyboard:**
-- **`T`** — toggle target lines (draw each agent's line to its personal inner target).
+- **`T`** — toggle target lines (draw each agent's line to its inner target).
 
 **Dashboard readouts:** current round, per-cluster agent counts (color-keyed), live
 loss/confidence bars, and a rolling sparkline of loss and confidence.
